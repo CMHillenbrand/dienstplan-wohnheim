@@ -1003,3 +1003,232 @@ function formatMitarbeiterNameShort(mitarbeiter) {
     }
     return parts[0].length > 10 ? parts[0].substring(0, 10) + '...' : parts[0];
 }
+// Dynamische Größenanpassung der Schicht-Zellen
+function adjustGridLayout() {
+    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+    
+    // Ermittle die maximale Anzahl Mitarbeiter pro Schicht
+    const maxMitarbeiterProSchicht = {
+        'Frühdienst': 0,
+        'Spätdienst': 0,
+        'Nachtdienst': 0
+    };
+    
+    // Durchlaufe alle Tage und Schichten
+    wochentage.forEach(tag => {
+        schichten.forEach(schicht => {
+            if (dienstplan[tag] && dienstplan[tag][schicht]) {
+                const anzahl = dienstplan[tag][schicht].length;
+                maxMitarbeiterProSchicht[schicht] = Math.max(maxMitarbeiterProSchicht[schicht], anzahl);
+            }
+        });
+    });
+    
+    // Berechne die benötigte Höhe pro Schicht
+    const baseHeight = 60; // Grundhöhe für Header
+    const mitarbeiterHeight = 55; // Höhe pro Mitarbeiter
+    const padding = 20; // Zusätzlicher Padding
+    
+    const fruehdienstHeight = Math.max(baseHeight + (maxMitarbeiterProSchicht['Frühdienst'] * mitarbeiterHeight) + padding, 120);
+    const spaetdienstHeight = Math.max(baseHeight + (maxMitarbeiterProSchicht['Spätdienst'] * mitarbeiterHeight) + padding, 120);
+    const nachtdienstHeight = Math.max(baseHeight + (maxMitarbeiterProSchicht['Nachtdienst'] * mitarbeiterHeight) + padding, 80);
+    
+    // Setze die Grid-Template-Rows dynamisch
+    const grid = document.getElementById('dienstplanGrid');
+    if (grid) {
+        grid.style.gridTemplateRows = `auto ${fruehdienstHeight}px ${spaetdienstHeight}px ${nachtdienstHeight}px`;
+    }
+    
+    // Auch für Edit-Grid
+    const editGrid = document.getElementById('dienstplanEditGrid');
+    if (editGrid) {
+        editGrid.style.gridTemplateRows = `auto ${fruehdienstHeight}px ${spaetdienstHeight}px ${nachtdienstHeight}px`;
+    }
+}
+
+// Erweiterte renderDienstplanGrid Funktion
+function renderDienstplanGrid() {
+    const grid = document.getElementById('dienstplanGrid');
+    grid.innerHTML = '';
+    
+    // Wenn keine Mitarbeiter vorhanden, zeige Hinweis
+    if (mitarbeiter.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #6c757d; text-align: center;">
+                <h2 style="margin-bottom: 20px;">Noch keine Mitarbeiter vorhanden</h2>
+                <p style="margin-bottom: 30px; font-size: 1.2em;">Gehen Sie zur Verwaltung, um Mitarbeiter hinzuzufügen.</p>
+                <a href="/admin" class="btn btn-primary" style="padding: 15px 30px; font-size: 1.2em; text-decoration: none; border-radius: 8px;">Zur Verwaltung</a>
+            </div>
+        `;
+        return;
+    }
+    
+    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+    
+    // Tag-Header erstellen
+    wochentage.forEach(tag => {
+        const tagHeader = document.createElement('div');
+        tagHeader.className = 'tag-header';
+        tagHeader.textContent = tag;
+        grid.appendChild(tagHeader);
+    });
+    
+    // Schichten erstellen
+    schichten.forEach(schicht => {
+        wochentage.forEach(tag => {
+            const schichtCell = document.createElement('div');
+            schichtCell.className = `schicht-cell schicht-${schicht.toLowerCase()}`;
+            
+            const schichtHeader = document.createElement('div');
+            schichtHeader.className = 'schicht-header';
+            schichtHeader.textContent = schicht;
+            schichtCell.appendChild(schichtHeader);
+            
+            const mitarbeiterContainer = document.createElement('div');
+            mitarbeiterContainer.className = 'mitarbeiter-container';
+            
+            // Mitarbeiter für diese Schicht hinzufügen
+            if (dienstplan[tag] && dienstplan[tag][schicht] && dienstplan[tag][schicht].length > 0) {
+                dienstplan[tag][schicht].forEach(mitarbeiterId => {
+                    const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
+                    if (mitarbeiterObj) {
+                        const mitarbeiterDiv = document.createElement('div');
+                        mitarbeiterDiv.className = 'mitarbeiter-item';
+                        mitarbeiterDiv.innerHTML = `
+                            <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
+                            <span class="mitarbeiter-name">${formatMitarbeiterName(mitarbeiterObj)}</span>
+                        `;
+                        mitarbeiterContainer.appendChild(mitarbeiterDiv);
+                    }
+                });
+            } else {
+                // Zeige leeren Zustand
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-schicht';
+                emptyDiv.textContent = 'Keine Mitarbeiter eingeteilt';
+                mitarbeiterContainer.appendChild(emptyDiv);
+            }
+            
+            schichtCell.appendChild(mitarbeiterContainer);
+            grid.appendChild(schichtCell);
+        });
+    });
+    
+    // Nach dem Rendern: Layout anpassen
+    setTimeout(() => {
+        adjustGridLayout();
+    }, 100);
+}
+
+// Erweiterte renderDienstplanEditGrid Funktion
+function renderDienstplanEditGrid() {
+    const grid = document.getElementById('dienstplanEditGrid');
+    grid.innerHTML = '';
+    
+    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+    
+    // Tag-Header erstellen
+    wochentage.forEach(tag => {
+        const tagHeader = document.createElement('div');
+        tagHeader.className = 'edit-tag-header';
+        tagHeader.textContent = tag;
+        grid.appendChild(tagHeader);
+    });
+    
+    // Schichten erstellen
+    schichten.forEach(schicht => {
+        wochentage.forEach(tag => {
+            const schichtCell = document.createElement('div');
+            schichtCell.className = 'edit-schicht-cell';
+            schichtCell.onclick = () => openMitarbeiterAuswahl(tag, schicht);
+            
+            const schichtHeader = document.createElement('div');
+            schichtHeader.className = 'edit-schicht-header';
+            schichtHeader.textContent = schicht;
+            schichtCell.appendChild(schichtHeader);
+            
+            const mitarbeiterContainer = document.createElement('div');
+            mitarbeiterContainer.className = 'edit-mitarbeiter-container';
+            
+            // Mitarbeiter für diese Schicht anzeigen
+            if (dienstplan[tag] && dienstplan[tag][schicht] && dienstplan[tag][schicht].length > 0) {
+                dienstplan[tag][schicht].forEach(mitarbeiterId => {
+                    const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
+                    if (mitarbeiterObj) {
+                        const mitarbeiterDiv = document.createElement('div');
+                        mitarbeiterDiv.className = 'edit-mitarbeiter-item';
+                        mitarbeiterDiv.innerHTML = `
+                            <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
+                            <span>${formatMitarbeiterName(mitarbeiterObj)}</span>
+                        `;
+                        mitarbeiterContainer.appendChild(mitarbeiterDiv);
+                    }
+                });
+            }
+            
+            // Add-Button
+            const addButton = document.createElement('button');
+            addButton.className = 'edit-add-button';
+            addButton.textContent = '+ Mitarbeiter';
+            addButton.onclick = (e) => {
+                e.stopPropagation();
+                openMitarbeiterAuswahl(tag, schicht);
+            };
+            mitarbeiterContainer.appendChild(addButton);
+            
+            schichtCell.appendChild(mitarbeiterContainer);
+            grid.appendChild(schichtCell);
+        });
+    });
+    
+    // Nach dem Rendern: Layout anpassen
+    setTimeout(() => {
+        adjustGridLayout();
+    }, 100);
+}
+
+// Erweiterte saveSchichtAuswahl Funktion
+function saveSchichtAuswahl() {
+    if (currentEditingSchicht) {
+        const { tag, schicht } = currentEditingSchicht;
+        
+        // Dienstplan aktualisieren
+        dienstplan[tag][schicht] = [...currentSelectedMitarbeiter];
+        
+        // Nachtschicht automatisch zu Frühdienst des nächsten Tags
+        if (schicht === 'Nachtdienst') {
+            const nextDay = getNextDay(tag);
+            if (nextDay) {
+                currentSelectedMitarbeiter.forEach(mitarbeiterId => {
+                    if (!dienstplan[nextDay]['Frühdienst'].includes(mitarbeiterId)) {
+                        dienstplan[nextDay]['Frühdienst'].push(mitarbeiterId);
+                    }
+                });
+            }
+        }
+        
+        // Grid aktualisieren
+        renderDienstplanEditGrid();
+        
+        // Modal schließen
+        closeMitarbeiterAuswahl();
+        
+        // Success-Message
+        showSuccessMessage(`${tag} - ${schicht} wurde aktualisiert (${currentSelectedMitarbeiter.length} Mitarbeiter)`);
+    }
+}
+
+// Erweiterte saveDienstplan Funktion
+async function saveDienstplan() {
+    await saveToStorage();
+    
+    // Hauptansicht aktualisieren falls geöffnet
+    if (window.location.pathname === '/') {
+        renderDienstplanGrid();
+    }
+    
+    showSuccessMessage('Dienstplan wurde gespeichert!');
+}
