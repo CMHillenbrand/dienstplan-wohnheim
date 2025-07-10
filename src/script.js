@@ -595,25 +595,24 @@ function openMitarbeiterAuswahl(tag, schicht) {
     // Aktuell ausgewählte Mitarbeiter laden
     currentSelectedMitarbeiter = dienstplan[tag][schicht] ? [...dienstplan[tag][schicht]] : [];
     
-    // Info aktualisieren
-    document.getElementById('schichtInfo').textContent = `${tag} - ${schicht}`;
+    // Info aktualisieren mit Hinweis für Nachtschicht
+    let infoText = `${tag} - ${schicht}`;
+    if (schicht === 'Nachtdienst') {
+        infoText += ' (max. 1 Person)';
+    }
+    document.getElementById('schichtInfo').textContent = infoText;
     
-    // Suchfeld leeren
+    // Rest der Funktion bleibt gleich...
     document.getElementById('mitarbeiterSearch').value = '';
-    
-    // Mitarbeiter laden
     filteredMitarbeiter = [...mitarbeiter];
     renderMitarbeiterAuswahlGrid();
-    
-    // Modal anzeigen
     document.getElementById('mitarbeiterAuswahlModal').style.display = 'block';
     
-    // Aktuell bearbeitete Zelle hervorheben
+    // Hervorhebung...
     document.querySelectorAll('.edit-schicht-cell').forEach(cell => {
         cell.classList.remove('editing');
     });
     
-    // Entsprechende Zelle finden und hervorheben
     const cells = document.querySelectorAll('.edit-schicht-cell');
     const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
     const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
@@ -663,9 +662,16 @@ function renderMitarbeiterAuswahlGrid() {
 }
 
 function toggleMitarbeiterSelection(mitarbeiterId) {
+    const { schicht } = currentEditingSchicht;
+    
     if (currentSelectedMitarbeiter.includes(mitarbeiterId)) {
         currentSelectedMitarbeiter = currentSelectedMitarbeiter.filter(id => id !== mitarbeiterId);
     } else {
+        // Nachtschicht-Begrenzung
+        if (schicht === 'Nachtdienst' && currentSelectedMitarbeiter.length >= 1) {
+            showErrorMessage('Nachtdienst: Es kann nur eine Person eingeteilt werden!');
+            return;
+        }
         currentSelectedMitarbeiter.push(mitarbeiterId);
     }
     
@@ -681,7 +687,6 @@ function toggleMitarbeiterSelection(mitarbeiterId) {
     
     updateSelectedCount();
 }
-
 function updateSelectedCount() {
     const count = currentSelectedMitarbeiter.length;
     document.getElementById('selectedCount').textContent = `${count} ausgewählt`;
