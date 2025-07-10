@@ -1,25 +1,25 @@
-// Daten bleiben gleich...
-let mitarbeiter = [
-    { id: 1, name: "Anna Müller", bild: "https://via.placeholder.com/80" },
-    { id: 2, name: "Max Mustermann", bild: "https://via.placeholder.com/80" },
-    { id: 3, name: "Lisa Schmidt", bild: "https://via.placeholder.com/80" },
-    { id: 4, name: "Tom Weber", bild: "https://via.placeholder.com/80" }
-];
+// Daten - startet leer
+let mitarbeiter = [];
 
 let dienstplan = {
-    "Montag": { "Frühdienst": [1, 2], "Spätdienst": [3], "Nachtdienst": [4] },
-    "Dienstag": { "Frühdienst": [4, 1], "Spätdienst": [2], "Nachtdienst": [3] },
-    "Mittwoch": { "Frühdienst": [3, 2], "Spätdienst": [1], "Nachtdienst": [4] },
-    "Donnerstag": { "Frühdienst": [4, 3], "Spätdienst": [2], "Nachtdienst": [1] },
-    "Freitag": { "Frühdienst": [1, 2], "Spätdienst": [3], "Nachtdienst": [4] },
-    "Samstag": { "Frühdienst": [4, 1], "Spätdienst": [2], "Nachtdienst": [3] },
-    "Sonntag": { "Frühdienst": [3, 2], "Spätdienst": [1], "Nachtdienst": [4] }
+    "Montag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
+    "Dienstag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
+    "Mittwoch": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
+    "Donnerstag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
+    "Freitag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
+    "Samstag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
+    "Sonntag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] }
 };
 
+// Globale Variablen
 let currentAdminView = 'mitarbeiter';
 let currentEditingTag = 'Montag';
+let currentEditingMitarbeiter = null;
+let currentEditingSchicht = null;
+let currentSelectedMitarbeiter = [];
+let filteredMitarbeiter = [];
 
-// Routing
+// ROUTING
 function initRouter() {
     const path = window.location.pathname;
     if (path === '/admin' || path === '/admin/') {
@@ -29,7 +29,7 @@ function initRouter() {
     }
 }
 
-// Hilfsfunktionen
+// HILFSFUNKTIONEN
 function formatMitarbeiterName(mitarbeiter) {
     const parts = mitarbeiter.name.split(' ');
     if (parts.length > 1) {
@@ -40,6 +40,16 @@ function formatMitarbeiterName(mitarbeiter) {
 
 function getMitarbeiterById(id) {
     return mitarbeiter.find(m => m.id === id);
+}
+
+function getNextMitarbeiterId() {
+    return mitarbeiter.length > 0 ? Math.max(...mitarbeiter.map(m => m.id)) + 1 : 1;
+}
+
+function getNextDay(currentDay) {
+    const tage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const index = tage.indexOf(currentDay);
+    return index === 6 ? 'Montag' : tage[index + 1];
 }
 
 // DIENSTPLAN ANZEIGE (Grid-Layout)
@@ -59,6 +69,18 @@ function showDienstplanView() {
 function renderDienstplanGrid() {
     const grid = document.getElementById('dienstplanGrid');
     grid.innerHTML = '';
+    
+    // Wenn keine Mitarbeiter vorhanden, zeige Hinweis
+    if (mitarbeiter.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #6c757d; text-align: center;">
+                <h2 style="margin-bottom: 20px;">Noch keine Mitarbeiter vorhanden</h2>
+                <p style="margin-bottom: 30px; font-size: 1.2em;">Gehen Sie zur Verwaltung, um Mitarbeiter hinzuzufügen.</p>
+                <a href="/admin" class="btn btn-primary" style="padding: 15px 30px; font-size: 1.2em; text-decoration: none; border-radius: 8px;">Zur Verwaltung</a>
+            </div>
+        `;
+        return;
+    }
     
     const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
     const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
@@ -86,7 +108,7 @@ function renderDienstplanGrid() {
             mitarbeiterContainer.className = 'mitarbeiter-container';
             
             // Mitarbeiter für diese Schicht hinzufügen
-            if (dienstplan[tag] && dienstplan[tag][schicht]) {
+            if (dienstplan[tag] && dienstplan[tag][schicht] && dienstplan[tag][schicht].length > 0) {
                 dienstplan[tag][schicht].forEach(mitarbeiterId => {
                     const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
                     if (mitarbeiterObj) {
@@ -99,6 +121,21 @@ function renderDienstplanGrid() {
                         mitarbeiterContainer.appendChild(mitarbeiterDiv);
                     }
                 });
+            } else {
+                // Zeige leeren Zustand
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-schicht';
+                emptyDiv.style.cssText = `
+                    color: #6c757d;
+                    font-style: italic;
+                    text-align: center;
+                    padding: 20px;
+                    border: 2px dashed #dee2e6;
+                    border-radius: 8px;
+                    margin: 10px 0;
+                `;
+                emptyDiv.textContent = 'Keine Mitarbeiter eingeteilt';
+                mitarbeiterContainer.appendChild(emptyDiv);
             }
             
             schichtCell.appendChild(mitarbeiterContainer);
@@ -107,7 +144,7 @@ function renderDienstplanGrid() {
     });
 }
 
-// ADMIN BEREICH (bleibt gleich)
+// ADMIN BEREICH
 function showAdminView() {
     const app = document.getElementById('app');
     app.innerHTML = `
@@ -154,7 +191,7 @@ function switchAdminView(view) {
     }
 }
 
-// Rest der Funktionen bleiben gleich...
+// MITARBEITER VERWALTUNG
 function showMitarbeiterVerwaltung() {
     const content = document.getElementById('adminContent');
     content.innerHTML = `
@@ -181,12 +218,23 @@ function renderMitarbeiterGrid() {
     const grid = document.getElementById('mitarbeiterGrid');
     grid.innerHTML = '';
     
+    if (mitarbeiter.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
+                <h3>Noch keine Mitarbeiter vorhanden</h3>
+                <p>Klicken Sie auf "Neuer Mitarbeiter" um den ersten Mitarbeiter hinzuzufügen.</p>
+            </div>
+        `;
+        return;
+    }
+    
     mitarbeiter.forEach(m => {
         const card = document.createElement('div');
         card.className = 'mitarbeiter-card';
         card.innerHTML = `
-            <img src="${m.bild}" alt="${m.name}">
+            <img src="${m.bild}" alt="${m.name}" onerror="this.src='https://via.placeholder.com/80'">
             <h3>${m.name}</h3>
+            <p style="color: #6c757d; margin-bottom: 15px;">ID: ${m.id}</p>
             <div class="actions">
                 <button onclick="editMitarbeiter(${m.id})" class="btn btn-warning">✏️ Bearbeiten</button>
                 <button onclick="deleteMitarbeiter(${m.id})" class="btn btn-danger">🗑️ Löschen</button>
@@ -197,9 +245,10 @@ function renderMitarbeiterGrid() {
 }
 
 function showAddMitarbeiterForm() {
+    currentEditingMitarbeiter = null;
     const container = document.getElementById('mitarbeiterFormContainer');
     container.innerHTML = `
-        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #dee2e6;">
+        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #28a745;">
             <h3>Neuer Mitarbeiter</h3>
             <div class="form-group">
                 <label for="mitarbeiterName">Name:</label>
@@ -225,6 +274,40 @@ function showAddMitarbeiterForm() {
     });
 }
 
+function showEditMitarbeiterForm(mitarbeiterObj) {
+    const container = document.getElementById('mitarbeiterFormContainer');
+    container.innerHTML = `
+        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #007bff;">
+            <h3>Mitarbeiter bearbeiten</h3>
+            <div class="form-group">
+                <label for="mitarbeiterName">Name:</label>
+                <input type="text" id="mitarbeiterName" value="${mitarbeiterObj.name}" required>
+            </div>
+            <div class="form-group">
+                <label for="mitarbeiterBild">Foto ändern (optional):</label>
+                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
+                <div id="imagePreview" style="margin-top: 10px;">
+                    <div style="margin-bottom: 10px;">
+                        <strong>Aktuelles Foto:</strong>
+                    </div>
+                    <img src="${mitarbeiterObj.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success">💾 Änderungen speichern</button>
+                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
+            </div>
+        </form>
+    `;
+    
+    container.style.display = 'block';
+    
+    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveMitarbeiter();
+    });
+}
+
 function previewImage() {
     const file = document.getElementById('mitarbeiterBild').files[0];
     const preview = document.getElementById('imagePreview');
@@ -232,11 +315,51 @@ function previewImage() {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">`;
+            if (currentEditingMitarbeiter) {
+                // Bei Bearbeitung: Neues Bild + aktuelles Bild anzeigen
+                const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
+                preview.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Neues Foto:</strong>
+                    </div>
+                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745; margin-right: 10px;">
+                    <div style="margin-top: 10px; margin-bottom: 10px;">
+                        <strong>Aktuelles Foto:</strong>
+                    </div>
+                    <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
+                `;
+            } else {
+                // Bei neuem Mitarbeiter: Nur Vorschau
+                preview.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Vorschau:</strong>
+                    </div>
+                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745;">
+                `;
+            }
         };
         reader.readAsDataURL(file);
     } else {
-        preview.innerHTML = '';
+        if (currentEditingMitarbeiter) {
+            // Zurück zum aktuellen Bild
+            const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
+            preview.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <strong>Aktuelles Foto:</strong>
+                </div>
+                <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
+            `;
+        } else {
+            preview.innerHTML = '';
+        }
+    }
+}
+
+function editMitarbeiter(id) {
+    const mitarbeiterObj = getMitarbeiterById(id);
+    if (mitarbeiterObj) {
+        currentEditingMitarbeiter = id;
+        showEditMitarbeiterForm(mitarbeiterObj);
     }
 }
 
@@ -244,24 +367,44 @@ function saveMitarbeiter() {
     const name = document.getElementById('mitarbeiterName').value;
     const file = document.getElementById('mitarbeiterBild').files[0];
     
-    const newId = Math.max(...mitarbeiter.map(m => m.id)) + 1;
-    const newMitarbeiter = {
-        id: newId,
-        name: name,
-        bild: "https://via.placeholder.com/80"
-    };
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            newMitarbeiter.bild = e.target.result;
+    if (currentEditingMitarbeiter) {
+        // Mitarbeiter bearbeiten
+        const mitarbeiterObj = getMitarbeiterById(currentEditingMitarbeiter);
+        mitarbeiterObj.name = name;
+        
+        if (file) {
+            // Neues Bild hochgeladen
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                mitarbeiterObj.bild = e.target.result;
+                finishMitarbeiterSave();
+            };
+            reader.readAsDataURL(file);
+        } else {
+            // Kein neues Bild - nur Name aktualisieren
+            finishMitarbeiterSave();
+        }
+    } else {
+        // Neuer Mitarbeiter
+        const newId = getNextMitarbeiterId();
+        const newMitarbeiter = {
+            id: newId,
+            name: name,
+            bild: "https://via.placeholder.com/80"
+        };
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                newMitarbeiter.bild = e.target.result;
+                mitarbeiter.push(newMitarbeiter);
+                finishMitarbeiterSave();
+            };
+            reader.readAsDataURL(file);
+        } else {
             mitarbeiter.push(newMitarbeiter);
             finishMitarbeiterSave();
-        };
-        reader.readAsDataURL(file);
-    } else {
-        mitarbeiter.push(newMitarbeiter);
-        finishMitarbeiterSave();
+        }
     }
 }
 
@@ -269,19 +412,28 @@ function finishMitarbeiterSave() {
     cancelMitarbeiterForm();
     renderMitarbeiterGrid();
     saveToStorage();
+    
+    // Dienstplan-Anzeige aktualisieren falls sie geladen ist
+    if (window.location.pathname === '/') {
+        renderDienstplanGrid();
+    }
+    
+    // Success-Message
+    showSuccessMessage(currentEditingMitarbeiter ? 'Mitarbeiter wurde aktualisiert!' : 'Mitarbeiter wurde erstellt!');
+    
+    // Reset
+    currentEditingMitarbeiter = null;
 }
 
 function cancelMitarbeiterForm() {
     document.getElementById('mitarbeiterFormContainer').style.display = 'none';
-}
-
-function editMitarbeiter(id) {
-    // Implementierung für später
-    alert('Bearbeitung wird noch implementiert');
+    currentEditingMitarbeiter = null;
 }
 
 function deleteMitarbeiter(id) {
-    if (confirm('Mitarbeiter wirklich löschen?')) {
+    const mitarbeiterObj = getMitarbeiterById(id);
+    if (confirm(`Mitarbeiter "${mitarbeiterObj.name}" wirklich löschen?\n\nDer Mitarbeiter wird auch aus dem Dienstplan entfernt.`)) {
+        // Aus Mitarbeiter-Array entfernen
         mitarbeiter = mitarbeiter.filter(m => m.id !== id);
         
         // Aus Dienstplan entfernen
@@ -293,17 +445,32 @@ function deleteMitarbeiter(id) {
         
         renderMitarbeiterGrid();
         saveToStorage();
+        
+        // Dienstplan-Anzeige aktualisieren falls sie geladen ist
+        if (window.location.pathname === '/') {
+            renderDienstplanGrid();
+        }
+        
+        showSuccessMessage(`Mitarbeiter "${mitarbeiterObj.name}" wurde gelöscht.`);
     }
 }
-
-// Globale Variablen für die Auswahl
-let currentEditingSchicht = null;
-let currentSelectedMitarbeiter = [];
-let filteredMitarbeiter = [];
 
 // VISUELLER DIENSTPLAN EDITOR
 function showDienstplanEditor() {
     const content = document.getElementById('adminContent');
+    
+    // Prüfe ob Mitarbeiter vorhanden sind
+    if (mitarbeiter.length === 0) {
+        content.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #6c757d;">
+                <h2>Keine Mitarbeiter vorhanden</h2>
+                <p style="margin-bottom: 20px;">Sie müssen zuerst Mitarbeiter hinzufügen, bevor Sie den Dienstplan bearbeiten können.</p>
+                <button onclick="switchAdminView('mitarbeiter')" class="btn btn-primary">Zur Mitarbeiterverwaltung</button>
+            </div>
+        `;
+        return;
+    }
+    
     content.innerHTML = `
         <div class="dienstplan-bearbeitung">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -391,7 +558,7 @@ function renderDienstplanEditGrid() {
             mitarbeiterContainer.className = 'edit-mitarbeiter-container';
             
             // Mitarbeiter für diese Schicht anzeigen
-            if (dienstplan[tag] && dienstplan[tag][schicht]) {
+            if (dienstplan[tag] && dienstplan[tag][schicht] && dienstplan[tag][schicht].length > 0) {
                 dienstplan[tag][schicht].forEach(mitarbeiterId => {
                     const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
                     if (mitarbeiterObj) {
@@ -605,276 +772,7 @@ function saveDienstplan() {
     showSuccessMessage('Dienstplan wurde gespeichert!');
 }
 
-// Bestehende getNextDay Funktion...
-function getNextDay(currentDay) {
-    const tage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    const index = tage.indexOf(currentDay);
-    return index === 6 ? 'Montag' : tage[index + 1];
-}
-
-// Modal schließen bei Klick außerhalb
-window.onclick = function(event) {
-    const modal = document.getElementById('mitarbeiterAuswahlModal');
-    if (event.target === modal) {
-        closeMitarbeiterAuswahl();
-    }
-}
-// STORAGE
-function saveToStorage() {
-    localStorage.setItem('dienstplan_mitarbeiter', JSON.stringify(mitarbeiter));
-    localStorage.setItem('dienstplan_plan', JSON.stringify(dienstplan));
-}
-
-function loadFromStorage() {
-    const savedMitarbeiter = localStorage.getItem('dienstplan_mitarbeiter');
-    const savedPlan = localStorage.getItem('dienstplan_plan');
-    
-    if (savedMitarbeiter) {
-        mitarbeiter = JSON.parse(savedMitarbeiter);
-    }
-    
-    if (savedPlan) {
-        dienstplan = JSON.parse(savedPlan);
-    }
-}
-
-// INIT
-document.addEventListener('DOMContentLoaded', function() {
-    loadFromStorage();
-    initRouter();
-});
-
-// Navigation ohne Reload
-window.addEventListener('popstate', initRouter);
-
-// Links abfangen
-document.addEventListener('click', function(e) {
-    if (e.target.tagName === 'A' && e.target.getAttribute('href')) {
-        const href = e.target.getAttribute('href');
-        if (href === '/' || href === '/admin') {
-            e.preventDefault();
-            window.history.pushState({}, '', href);
-            initRouter();
-        }
-    }
-});
-
-// Globale Variable für den aktuell bearbeiteten Mitarbeiter
-let currentEditingMitarbeiter = null;
-
-// Mitarbeiterbearbeitung implementieren
-function editMitarbeiter(id) {
-    const mitarbeiterObj = getMitarbeiterById(id);
-    if (mitarbeiterObj) {
-        currentEditingMitarbeiter = id;
-        showEditMitarbeiterForm(mitarbeiterObj);
-    }
-}
-
-function showEditMitarbeiterForm(mitarbeiterObj) {
-    const container = document.getElementById('mitarbeiterFormContainer');
-    container.innerHTML = `
-        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #007bff;">
-            <h3>Mitarbeiter bearbeiten</h3>
-            <div class="form-group">
-                <label for="mitarbeiterName">Name:</label>
-                <input type="text" id="mitarbeiterName" value="${mitarbeiterObj.name}" required>
-            </div>
-            <div class="form-group">
-                <label for="mitarbeiterBild">Foto ändern (optional):</label>
-                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
-                <div id="imagePreview" style="margin-top: 10px;">
-                    <div style="margin-bottom: 10px;">
-                        <strong>Aktuelles Foto:</strong>
-                    </div>
-                    <img src="${mitarbeiterObj.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
-                </div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-success">💾 Änderungen speichern</button>
-                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
-            </div>
-        </form>
-    `;
-    
-    container.style.display = 'block';
-    
-    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveMitarbeiter();
-    });
-}
-
-function showAddMitarbeiterForm() {
-    currentEditingMitarbeiter = null;
-    const container = document.getElementById('mitarbeiterFormContainer');
-    container.innerHTML = `
-        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #28a745;">
-            <h3>Neuer Mitarbeiter</h3>
-            <div class="form-group">
-                <label for="mitarbeiterName">Name:</label>
-                <input type="text" id="mitarbeiterName" required>
-            </div>
-            <div class="form-group">
-                <label for="mitarbeiterBild">Foto:</label>
-                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
-                <div id="imagePreview" style="margin-top: 10px;"></div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-success">💾 Speichern</button>
-                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
-            </div>
-        </form>
-    `;
-    
-    container.style.display = 'block';
-    
-    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveMitarbeiter();
-    });
-}
-
-function previewImage() {
-    const file = document.getElementById('mitarbeiterBild').files[0];
-    const preview = document.getElementById('imagePreview');
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            if (currentEditingMitarbeiter) {
-                // Bei Bearbeitung: Neues Bild + aktuelles Bild anzeigen
-                const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
-                preview.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <strong>Neues Foto:</strong>
-                    </div>
-                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745; margin-right: 10px;">
-                    <div style="margin-top: 10px; margin-bottom: 10px;">
-                        <strong>Aktuelles Foto:</strong>
-                    </div>
-                    <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
-                `;
-            } else {
-                // Bei neuem Mitarbeiter: Nur Vorschau
-                preview.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <strong>Vorschau:</strong>
-                    </div>
-                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745;">
-                `;
-            }
-        };
-        reader.readAsDataURL(file);
-    } else {
-        if (currentEditingMitarbeiter) {
-            // Zurück zum aktuellen Bild
-            const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
-            preview.innerHTML = `
-                <div style="margin-bottom: 10px;">
-                    <strong>Aktuelles Foto:</strong>
-                </div>
-                <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
-            `;
-        } else {
-            preview.innerHTML = '';
-        }
-    }
-}
-
-function saveMitarbeiter() {
-    const name = document.getElementById('mitarbeiterName').value;
-    const file = document.getElementById('mitarbeiterBild').files[0];
-    
-    if (currentEditingMitarbeiter) {
-        // Mitarbeiter bearbeiten
-        const mitarbeiterObj = getMitarbeiterById(currentEditingMitarbeiter);
-        mitarbeiterObj.name = name;
-        
-        if (file) {
-            // Neues Bild hochgeladen
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                mitarbeiterObj.bild = e.target.result;
-                finishMitarbeiterSave();
-            };
-            reader.readAsDataURL(file);
-        } else {
-            // Kein neues Bild - nur Name aktualisieren
-            finishMitarbeiterSave();
-        }
-    } else {
-        // Neuer Mitarbeiter
-        const newId = Math.max(...mitarbeiter.map(m => m.id)) + 1;
-        const newMitarbeiter = {
-            id: newId,
-            name: name,
-            bild: "https://via.placeholder.com/80"
-        };
-        
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                newMitarbeiter.bild = e.target.result;
-                mitarbeiter.push(newMitarbeiter);
-                finishMitarbeiterSave();
-            };
-            reader.readAsDataURL(file);
-        } else {
-            mitarbeiter.push(newMitarbeiter);
-            finishMitarbeiterSave();
-        }
-    }
-}
-
-function finishMitarbeiterSave() {
-    cancelMitarbeiterForm();
-    renderMitarbeiterGrid();
-    saveToStorage();
-    
-    // Dienstplan-Anzeige aktualisieren falls sie geladen ist
-    if (window.location.pathname === '/') {
-        renderDienstplanGrid();
-    }
-    
-    // Success-Message
-    showSuccessMessage(currentEditingMitarbeiter ? 'Mitarbeiter wurde aktualisiert!' : 'Mitarbeiter wurde erstellt!');
-    
-    // Reset
-    currentEditingMitarbeiter = null;
-}
-
-function cancelMitarbeiterForm() {
-    document.getElementById('mitarbeiterFormContainer').style.display = 'none';
-    currentEditingMitarbeiter = null;
-}
-
-function deleteMitarbeiter(id) {
-    const mitarbeiterObj = getMitarbeiterById(id);
-    if (confirm(`Mitarbeiter "${mitarbeiterObj.name}" wirklich löschen?\n\nDer Mitarbeiter wird auch aus dem Dienstplan entfernt.`)) {
-        // Aus Mitarbeiter-Array entfernen
-        mitarbeiter = mitarbeiter.filter(m => m.id !== id);
-        
-        // Aus Dienstplan entfernen
-        Object.keys(dienstplan).forEach(tag => {
-            Object.keys(dienstplan[tag]).forEach(schicht => {
-                dienstplan[tag][schicht] = dienstplan[tag][schicht].filter(mId => mId !== id);
-            });
-        });
-        
-        renderMitarbeiterGrid();
-        saveToStorage();
-        
-        // Dienstplan-Anzeige aktualisieren falls sie geladen ist
-        if (window.location.pathname === '/') {
-            renderDienstplanGrid();
-        }
-        
-        showSuccessMessage(`Mitarbeiter "${mitarbeiterObj.name}" wurde gelöscht.`);
-    }
-}
-
-// Success-Message anzeigen
+// SUCCESS MESSAGE
 function showSuccessMessage(message) {
     // Entferne vorhandene Messages
     const existingMessage = document.querySelector('.success-message');
@@ -912,33 +810,50 @@ function showSuccessMessage(message) {
     }, 3000);
 }
 
-// Verbesserte Mitarbeiter-Grid-Darstellung
-function renderMitarbeiterGrid() {
-    const grid = document.getElementById('mitarbeiterGrid');
-    grid.innerHTML = '';
+// STORAGE
+function saveToStorage() {
+    localStorage.setItem('dienstplan_mitarbeiter', JSON.stringify(mitarbeiter));
+    localStorage.setItem('dienstplan_plan', JSON.stringify(dienstplan));
+}
+
+function loadFromStorage() {
+    const savedMitarbeiter = localStorage.getItem('dienstplan_mitarbeiter');
+    const savedPlan = localStorage.getItem('dienstplan_plan');
     
-    if (mitarbeiter.length === 0) {
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
-                <h3>Noch keine Mitarbeiter vorhanden</h3>
-                <p>Klicken Sie auf "Neuer Mitarbeiter" um den ersten Mitarbeiter hinzuzufügen.</p>
-            </div>
-        `;
-        return;
+    if (savedMitarbeiter) {
+        mitarbeiter = JSON.parse(savedMitarbeiter);
     }
     
-    mitarbeiter.forEach(m => {
-        const card = document.createElement('div');
-        card.className = 'mitarbeiter-card';
-        card.innerHTML = `
-            <img src="${m.bild}" alt="${m.name}" onerror="this.src='https://via.placeholder.com/80'">
-            <h3>${m.name}</h3>
-            <p style="color: #6c757d; margin-bottom: 15px;">ID: ${m.id}</p>
-            <div class="actions">
-                <button onclick="editMitarbeiter(${m.id})" class="btn btn-warning">✏️ Bearbeiten</button>
-                <button onclick="deleteMitarbeiter(${m.id})" class="btn btn-danger">🗑️ Löschen</button>
-            </div>
-        `;
-        grid.appendChild(card);
-    });
+    if (savedPlan) {
+        dienstplan = JSON.parse(savedPlan);
+    }
+}
+
+// EVENT LISTENERS
+document.addEventListener('DOMContentLoaded', function() {
+    loadFromStorage();
+    initRouter();
+});
+
+// Navigation ohne Reload
+window.addEventListener('popstate', initRouter);
+
+// Links abfangen
+document.addEventListener('click', function(e) {
+    if (e.target.tagName === 'A' && e.target.getAttribute('href')) {
+        const href = e.target.getAttribute('href');
+        if (href === '/' || href === '/admin') {
+            e.preventDefault();
+            window.history.pushState({}, '', href);
+            initRouter();
+        }
+    }
+});
+
+// Modal schließen bei Klick außerhalb
+window.onclick = function(event) {
+    const modal = document.getElementById('mitarbeiterAuswahlModal');
+    if (event.target === modal) {
+        closeMitarbeiterAuswahl();
+    }
 }
