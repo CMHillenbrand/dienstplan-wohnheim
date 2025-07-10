@@ -1,108 +1,237 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+/* Bestehende Styles bleiben... */
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.8);
+    animation: fadeIn 0.3s;
 }
 
-body {
-    font-family: 'Arial', sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    min-height: 100vh;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 30px;
+    border-radius: 15px;
+    width: 80%;
+    max-width: 600px;
+    color: #333;
+    position: relative;
+    animation: slideIn 0.3s;
 }
 
-h1 {
-    text-align: center;
-    font-size: 3em;
-    margin-bottom: 30px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+.modal-content.large {
+    max-width: 900px;
 }
 
-.admin-panel {
-    text-align: center;
-    margin-bottom: 30px;
+@keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
-.admin-panel button {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    padding: 15px 30px;
-    margin: 0 10px;
-    border-radius: 10px;
-    font-size: 1.2em;
+.close {
+    position: absolute;
+    right: 20px;
+    top: 20px;
+    font-size: 28px;
+    font-weight: bold;
     cursor: pointer;
+    color: #999;
+}
+
+.close:hover {
+    color: #333;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1.1em;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+/* Button Styles */
+.btn-add, .btn-save, .btn-cancel, .btn-edit, .btn-delete {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    cursor: pointer;
+    margin: 5px;
     transition: all 0.3s;
 }
 
-.admin-panel button:hover {
+.btn-add, .btn-save {
+    background: #4CAF50;
+    color: white;
+}
+
+.btn-add:hover, .btn-save:hover {
     background: #45a049;
     transform: translateY(-2px);
 }
 
-.dienstplan {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 15px;
-    background: rgba(255,255,255,0.1);
-    padding: 20px;
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
+.btn-cancel {
+    background: #f44336;
+    color: white;
 }
 
-.tag {
-    background: rgba(255,255,255,0.9);
-    color: #333;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-    min-height: 300px;
+.btn-cancel:hover {
+    background: #da190b;
 }
 
-.tag h3 {
-    font-size: 1.5em;
-    margin-bottom: 15px;
-    color: #2c3e50;
+.btn-edit {
+    background: #2196F3;
+    color: white;
 }
 
-.schicht {
-    margin-bottom: 15px;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #007bff;
+.btn-edit:hover {
+    background: #0b7dda;
 }
 
-.schicht h4 {
-    color: #007bff;
-    margin-bottom: 8px;
+.btn-delete {
+    background: #ff9800;
+    color: white;
 }
 
-.mitarbeiter {
+.btn-delete:hover {
+    background: #e68900;
+}
+
+/* Mitarbeiter Liste */
+.mitarbeiter-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 20px;
+}
+
+.mitarbeiter-item {
     display: flex;
     align-items: center;
-    margin-bottom: 8px;
-    padding: 5px;
-    background: white;
-    border-radius: 5px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 15px;
+    margin-bottom: 10px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #4CAF50;
 }
 
-.mitarbeiter img {
+.mitarbeiter-item img {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    margin-right: 10px;
+    margin-right: 15px;
     object-fit: cover;
 }
 
-.mitarbeiter-name {
-    font-weight: bold;
-    font-size: 1.1em;
+.mitarbeiter-info {
+    flex: 1;
+}
+
+.mitarbeiter-info h4 {
+    margin: 0;
+    color: #2c3e50;
+}
+
+.mitarbeiter-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Bild Preview */
+#bildPreview {
+    margin-top: 10px;
+}
+
+#bildPreview img {
+    max-width: 150px;
+    max-height: 150px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+/* Schicht Editor */
+.schicht-group {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.schicht-group h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+}
+
+.mitarbeiter-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    border: 2px solid #ddd;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.checkbox-item:hover {
+    border-color: #4CAF50;
+}
+
+.checkbox-item input[type="checkbox"] {
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.checkbox-item.selected {
+    border-color: #4CAF50;
+    background: #e8f5e8;
+}
+
+.checkbox-mitarbeiter {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.checkbox-mitarbeiter img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+    object-fit: cover;
 }
