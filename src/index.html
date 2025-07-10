@@ -11,12 +11,87 @@
         <h1>Dienstplan Wohnheim</h1>
         
         <div class="admin-panel">
-            <button onclick="showMitarbeiterVerwaltung()">Mitarbeiter verwalten</button>
-            <button onclick="showDienstplanBearbeiten()">Dienstplan bearbeiten</button>
+            <button onclick="showMitarbeiterVerwaltung()">👥 Mitarbeiter verwalten</button>
+            <button onclick="showDienstplanBearbeiten()">📅 Dienstplan bearbeiten</button>
+            <button onclick="toggleFullscreen()">🖥️ Vollbild</button>
         </div>
 
         <div class="dienstplan" id="dienstplan">
             <!-- Wird dynamisch gefüllt -->
+        </div>
+    </div>
+
+    <!-- Pop-up für Mitarbeiterverwaltung -->
+    <div id="mitarbeiterModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeMitarbeiterModal()">&times;</span>
+            <h2>Mitarbeiterverwaltung</h2>
+            
+            <div class="mitarbeiter-actions">
+                <button onclick="showAddMitarbeiter()" class="btn-add">➕ Neuer Mitarbeiter</button>
+            </div>
+            
+            <div class="mitarbeiter-list" id="mitarbeiterList">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Pop-up für Mitarbeiter hinzufügen/bearbeiten -->
+    <div id="addMitarbeiterModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddMitarbeiterModal()">&times;</span>
+            <h2 id="addMitarbeiterTitle">Neuer Mitarbeiter</h2>
+            
+            <form id="mitarbeiterForm">
+                <div class="form-group">
+                    <label for="mitarbeiterName">Name:</label>
+                    <input type="text" id="mitarbeiterName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="mitarbeiterBild">Foto:</label>
+                    <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewBild()">
+                    <div id="bildPreview"></div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-save">💾 Speichern</button>
+                    <button type="button" onclick="closeAddMitarbeiterModal()" class="btn-cancel">❌ Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Pop-up für Dienstplan bearbeiten -->
+    <div id="dienstplanModal" class="modal">
+        <div class="modal-content large">
+            <span class="close" onclick="closeDienstplanModal()">&times;</span>
+            <h2>Dienstplan bearbeiten</h2>
+            
+            <div class="dienstplan-edit">
+                <div class="tag-selector">
+                    <label for="tagSelect">Tag auswählen:</label>
+                    <select id="tagSelect" onchange="loadTagForEdit()">
+                        <option value="Montag">Montag</option>
+                        <option value="Dienstag">Dienstag</option>
+                        <option value="Mittwoch">Mittwoch</option>
+                        <option value="Donnerstag">Donnerstag</option>
+                        <option value="Freitag">Freitag</option>
+                        <option value="Samstag">Samstag</option>
+                        <option value="Sonntag">Sonntag</option>
+                    </select>
+                </div>
+                
+                <div class="schicht-edit" id="schichtEdit">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+                
+                <div class="form-actions">
+                    <button onclick="saveDienstplan()" class="btn-save">💾 Speichern</button>
+                    <button onclick="closeDienstplanModal()" class="btn-cancel">❌ Abbrechen</button>
+                </div>
+            </div>
         </div>
     </div>
 
