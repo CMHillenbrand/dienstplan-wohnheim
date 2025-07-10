@@ -1,859 +1,952 @@
-// Daten - startet leer
-let mitarbeiter = [];
-
-let dienstplan = {
-    "Montag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
-    "Dienstag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
-    "Mittwoch": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
-    "Donnerstag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
-    "Freitag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
-    "Samstag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] },
-    "Sonntag": { "Frühdienst": [], "Spätdienst": [], "Nachtdienst": [] }
+// KONSTANTEN
+const WOCHENTAGE = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+const SCHICHTEN = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+const SCHICHT_COLORS = {
+  'Frühdienst': 'success',
+  'Spätdienst': 'warning', 
+  'Nachtdienst': 'purple'
 };
 
-// Globale Variablen
+const STORAGE_KEYS = {
+  mitarbeiter: 'dienstplan_mitarbeiter',
+  plan: 'dienstplan_plan'
+};
+
+const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/80';
+
+// GLOBALE VARIABLEN
+let mitarbeiter = [];
+let dienstplan = createEmptyDienstplan();
 let currentAdminView = 'mitarbeiter';
-let currentEditingTag = 'Montag';
 let currentEditingMitarbeiter = null;
 let currentEditingSchicht = null;
 let currentSelectedMitarbeiter = [];
 let filteredMitarbeiter = [];
 
+// UTILITY FUNKTIONEN
+const Dom = {
+  byId: (id) => document.getElementById(id),
+  create: (tag, className, innerHTML) => {
+    const element = document.createElement(tag);
+    if (className) element.className = className;
+    if (innerHTML) element.innerHTML = innerHTML;
+    return element;
+  },
+  clear: (element) => element.innerHTML = '',
+  show: (element) => element.style.display = 'block',
+  hide: (element) => element.style.display = 'none',
+  toggle: (element, className) => element.classList.toggle(className)
+};
+
+const Utils = {
+  formatName: (name) => {
+    const parts = name.split(' ');
+    return parts.length > 1 ? `${parts[0]} ${parts[1].charAt(0)}.` : parts[0];
+  },
+  
+  getNextId: (array) => array.length > 0 ? Math.max(...array.map(item => item.id)) + 1 : 1,
+  
+  getNextDay: (currentDay) => {
+    const index = WOCHENTAGE.indexOf(currentDay);
+    return index === 6 ? 'Montag' : WOCHENTAGE[index + 1];
+  },
+  
+  findById: (array, id) => array.find(item => item.id === id),
+  
+  debounce: (func, wait) => {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+};
+
+// DATENSTRUKTUREN
+function createEmptyDienstplan() {
+  const plan = {};
+  WOCHENTAGE.forEach(tag => {
+    plan[tag] = {};
+    SCHICHTEN.forEach(schicht => {
+      plan[tag][schicht] = [];
+    });
+  });
+  return plan;
+}
+
 // ROUTING
-function initRouter() {
+class Router {
+  static init() {
     const path = window.location.pathname;
     if (path === '/admin' || path === '/admin/') {
-        showAdminView();
+      Views.showAdmin();
     } else {
-        showDienstplanView();
+      Views.showDienstplan();
     }
+  }
+  
+  static navigate(path) {
+    window.history.pushState({}, '', path);
+    this.init();
+  }
 }
 
-// HILFSFUNKTIONEN
-function formatMitarbeiterName(mitarbeiter) {
-    const parts = mitarbeiter.name.split(' ');
-    if (parts.length > 1) {
-        return parts[0] + ' ' + parts[1].charAt(0) + '.';
-    }
-    return parts[0];
-}
-
-function getMitarbeiterById(id) {
-    return mitarbeiter.find(m => m.id === id);
-}
-
-function getNextMitarbeiterId() {
-    return mitarbeiter.length > 0 ? Math.max(...mitarbeiter.map(m => m.id)) + 1 : 1;
-}
-
-function getNextDay(currentDay) {
-    const tage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    const index = tage.indexOf(currentDay);
-    return index === 6 ? 'Montag' : tage[index + 1];
-}
-
-// DIENSTPLAN ANZEIGE (Grid-Layout)
-function showDienstplanView() {
-    const app = document.getElementById('app');
+// VIEWS
+class Views {
+  static showDienstplan() {
+    const app = Dom.byId('app');
     app.innerHTML = `
-        <div class="dienstplan-view">
-            <div class="dienstplan-grid" id="dienstplanGrid">
-                <!-- Wird dynamisch gefüllt -->
-            </div>
-        </div>
+      <div class="dienstplan-view">
+        <div class="dienstplan-grid" id="dienstplanGrid"></div>
+      </div>
     `;
-    
-    renderDienstplanGrid();
+    DienstplanRenderer.renderGrid();
+  }
+  
+  static showAdmin() {
+    const app = Dom.byId('app');
+    app.innerHTML = `
+      <div class="admin-view">
+        <div class="admin-header">
+          <h1>Dienstplan Verwaltung</h1>
+          <a href="/" class="btn btn-primary">Zur Dienstplan-Anzeige</a>
+        </div>
+        
+        <nav class="admin-nav">
+          <button onclick="AdminController.switchView('mitarbeiter')" 
+                  class="btn btn-primary ${currentAdminView === 'mitarbeiter' ? 'active' : ''}">
+            👥 Mitarbeiter verwalten
+          </button>
+          <button onclick="AdminController.switchView('dienstplan')" 
+                  class="btn btn-primary ${currentAdminView === 'dienstplan' ? 'active' : ''}">
+            📅 Dienstplan bearbeiten
+          </button>
+        </nav>
+        
+        <div class="admin-content" id="adminContent"></div>
+      </div>
+    `;
+    AdminController.switchView(currentAdminView);
+  }
 }
 
-function renderDienstplanGrid() {
-    const grid = document.getElementById('dienstplanGrid');
-    grid.innerHTML = '';
+// RENDERER
+class DienstplanRenderer {
+  static renderGrid() {
+    const grid = Dom.byId('dienstplanGrid');
+    Dom.clear(grid);
     
-    // Wenn keine Mitarbeiter vorhanden, zeige Hinweis
     if (mitarbeiter.length === 0) {
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: #6c757d; text-align: center;">
-                <h2 style="margin-bottom: 20px;">Noch keine Mitarbeiter vorhanden</h2>
-                <p style="margin-bottom: 30px; font-size: 1.2em;">Gehen Sie zur Verwaltung, um Mitarbeiter hinzuzufügen.</p>
-                <a href="/admin" class="btn btn-primary" style="padding: 15px 30px; font-size: 1.2em; text-decoration: none; border-radius: 8px;">Zur Verwaltung</a>
-            </div>
-        `;
-        return;
+      grid.innerHTML = this.getEmptyStateHTML();
+      return;
     }
     
-    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
-    
-    // Tag-Header erstellen
-    wochentage.forEach(tag => {
-        const tagHeader = document.createElement('div');
-        tagHeader.className = 'tag-header';
-        tagHeader.textContent = tag;
-        grid.appendChild(tagHeader);
+    this.renderHeaders(grid);
+    this.renderSchichten(grid);
+  }
+  
+  static renderHeaders(grid) {
+    WOCHENTAGE.forEach(tag => {
+      const header = Dom.create('div', 'tag-header', tag);
+      grid.appendChild(header);
     });
-    
-    // Schichten erstellen
-    schichten.forEach(schicht => {
-        wochentage.forEach(tag => {
-            const schichtCell = document.createElement('div');
-            schichtCell.className = `schicht-cell schicht-${schicht.toLowerCase()}`;
-            
-            const schichtHeader = document.createElement('div');
-            schichtHeader.className = 'schicht-header';
-            schichtHeader.textContent = schicht;
-            schichtCell.appendChild(schichtHeader);
-            
-            const mitarbeiterContainer = document.createElement('div');
-            mitarbeiterContainer.className = 'mitarbeiter-container';
-            
-            // Mitarbeiter für diese Schicht hinzufügen
-            if (dienstplan[tag] && dienstplan[tag][schicht] && dienstplan[tag][schicht].length > 0) {
-                dienstplan[tag][schicht].forEach(mitarbeiterId => {
-                    const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
-                    if (mitarbeiterObj) {
-                        const mitarbeiterDiv = document.createElement('div');
-                        mitarbeiterDiv.className = 'mitarbeiter-item';
-                        mitarbeiterDiv.innerHTML = `
-                            <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
-                            <span class="mitarbeiter-name">${formatMitarbeiterName(mitarbeiterObj)}</span>
-                        `;
-                        mitarbeiterContainer.appendChild(mitarbeiterDiv);
-                    }
-                });
-            } else {
-                // Zeige leeren Zustand
-                const emptyDiv = document.createElement('div');
-                emptyDiv.className = 'empty-schicht';
-                emptyDiv.style.cssText = `
-                    color: #6c757d;
-                    font-style: italic;
-                    text-align: center;
-                    padding: 20px;
-                    border: 2px dashed #dee2e6;
-                    border-radius: 8px;
-                    margin: 10px 0;
-                `;
-                emptyDiv.textContent = 'Keine Mitarbeiter eingeteilt';
-                mitarbeiterContainer.appendChild(emptyDiv);
-            }
-            
-            schichtCell.appendChild(mitarbeiterContainer);
-            grid.appendChild(schichtCell);
-        });
+  }
+  
+  static renderSchichten(grid) {
+    SCHICHTEN.forEach(schicht => {
+      WOCHENTAGE.forEach(tag => {
+        const cell = this.createSchichtCell(tag, schicht);
+        grid.appendChild(cell);
+      });
     });
-}
-
-// ADMIN BEREICH
-function showAdminView() {
-    const app = document.getElementById('app');
-    app.innerHTML = `
-        <div class="admin-view">
-            <div class="admin-header">
-                <h1>Dienstplan Verwaltung</h1>
-                <a href="/" class="btn btn-primary">Zur Dienstplan-Anzeige</a>
-            </div>
-            
-            <nav class="admin-nav">
-                <button onclick="switchAdminView('mitarbeiter')" class="btn btn-primary ${currentAdminView === 'mitarbeiter' ? 'active' : ''}">
-                    👥 Mitarbeiter verwalten
-                </button>
-                <button onclick="switchAdminView('dienstplan')" class="btn btn-primary ${currentAdminView === 'dienstplan' ? 'active' : ''}">
-                    📅 Dienstplan bearbeiten
-                </button>
-            </nav>
-            
-            <div class="admin-content" id="adminContent">
-                <!-- Wird dynamisch gefüllt -->
-            </div>
-        </div>
-    `;
+  }
+  
+  static createSchichtCell(tag, schicht) {
+    const cell = Dom.create('div', `schicht-cell schicht-${schicht.toLowerCase()}`);
+    const header = Dom.create('div', 'schicht-header', schicht);
+    const container = Dom.create('div', 'mitarbeiter-container');
     
-    switchAdminView(currentAdminView);
-}
-
-function switchAdminView(view) {
-    currentAdminView = view;
+    const mitarbeiterIds = dienstplan[tag]?.[schicht] || [];
     
-    // Navigation aktualisieren
-    const navButtons = document.querySelectorAll('.admin-nav button');
-    navButtons.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent.toLowerCase().includes(view)) {
-            btn.classList.add('active');
+    if (mitarbeiterIds.length > 0) {
+      mitarbeiterIds.forEach(id => {
+        const mitarbeiterObj = Utils.findById(mitarbeiter, id);
+        if (mitarbeiterObj) {
+          const item = this.createMitarbeiterItem(mitarbeiterObj);
+          container.appendChild(item);
         }
-    });
-    
-    if (view === 'mitarbeiter') {
-        showMitarbeiterVerwaltung();
-    } else if (view === 'dienstplan') {
-        showDienstplanEditor();
+      });
+    } else {
+      container.appendChild(this.createEmptySchichtItem());
     }
+    
+    cell.appendChild(header);
+    cell.appendChild(container);
+    return cell;
+  }
+  
+  static createMitarbeiterItem(mitarbeiterObj) {
+    return Dom.create('div', 'mitarbeiter-item', `
+      <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}" class="avatar avatar-md">
+      <span class="mitarbeiter-name">${Utils.formatName(mitarbeiterObj)}</span>
+    `);
+  }
+  
+  static createEmptySchichtItem() {
+    return Dom.create('div', 'empty-schicht', 'Keine Mitarbeiter eingeteilt');
+  }
+  
+  static getEmptyStateHTML() {
+    return `
+      <div class="empty-state">
+        <h2>Noch keine Mitarbeiter vorhanden</h2>
+        <p>Gehen Sie zur Verwaltung, um Mitarbeiter hinzuzufügen.</p>
+        <a href="/admin" class="btn btn-primary">Zur Verwaltung</a>
+      </div>
+    `;
+  }
 }
 
-// MITARBEITER VERWALTUNG
-function showMitarbeiterVerwaltung() {
-    const content = document.getElementById('adminContent');
+// ADMIN CONTROLLER
+class AdminController {
+  static switchView(view) {
+    currentAdminView = view;
+    this.updateNavigation();
+    
+    switch (view) {
+      case 'mitarbeiter':
+        MitarbeiterController.show();
+        break;
+      case 'dienstplan':
+        DienstplanEditor.show();
+        break;
+    }
+  }
+  
+  static updateNavigation() {
+    const buttons = document.querySelectorAll('.admin-nav button');
+    buttons.forEach(btn => {
+      btn.classList.remove('active');
+      if (btn.textContent.toLowerCase().includes(currentAdminView)) {
+        btn.classList.add('active');
+      }
+    });
+  }
+}
+
+// MITARBEITER CONTROLLER
+class MitarbeiterController {
+  static show() {
+    const content = Dom.byId('adminContent');
     content.innerHTML = `
-        <div class="mitarbeiter-verwaltung">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2>Mitarbeiter</h2>
-                <button onclick="showAddMitarbeiterForm()" class="btn btn-success">➕ Neuer Mitarbeiter</button>
-            </div>
-            
-            <div id="mitarbeiterFormContainer" style="display: none;">
-                <!-- Formular wird hier eingefügt -->
-            </div>
-            
-            <div class="mitarbeiter-grid" id="mitarbeiterGrid">
-                <!-- Wird dynamisch gefüllt -->
-            </div>
+      <div class="mitarbeiter-verwaltung">
+        <div class="section-header">
+          <h2>Mitarbeiter</h2>
+          <button onclick="MitarbeiterController.showAddForm()" class="btn btn-success">
+            ➕ Neuer Mitarbeiter
+          </button>
         </div>
+        
+        <div id="mitarbeiterFormContainer" class="form-container"></div>
+        <div class="mitarbeiter-grid" id="mitarbeiterGrid"></div>
+      </div>
     `;
     
-    renderMitarbeiterGrid();
-}
-
-function renderMitarbeiterGrid() {
-    const grid = document.getElementById('mitarbeiterGrid');
-    grid.innerHTML = '';
+    this.renderGrid();
+  }
+  
+  static renderGrid() {
+    const grid = Dom.byId('mitarbeiterGrid');
+    Dom.clear(grid);
     
     if (mitarbeiter.length === 0) {
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
-                <h3>Noch keine Mitarbeiter vorhanden</h3>
-                <p>Klicken Sie auf "Neuer Mitarbeiter" um den ersten Mitarbeiter hinzuzufügen.</p>
-            </div>
-        `;
-        return;
+      grid.innerHTML = this.getEmptyStateHTML();
+      return;
     }
     
     mitarbeiter.forEach(m => {
-        const card = document.createElement('div');
-        card.className = 'mitarbeiter-card';
-        card.innerHTML = `
-            <img src="${m.bild}" alt="${m.name}" onerror="this.src='https://via.placeholder.com/80'">
-            <h3>${m.name}</h3>
-            <p style="color: #6c757d; margin-bottom: 15px;">ID: ${m.id}</p>
-            <div class="actions">
-                <button onclick="editMitarbeiter(${m.id})" class="btn btn-warning">✏️ Bearbeiten</button>
-                <button onclick="deleteMitarbeiter(${m.id})" class="btn btn-danger">🗑️ Löschen</button>
-            </div>
-        `;
-        grid.appendChild(card);
+      const card = this.createMitarbeiterCard(m);
+      grid.appendChild(card);
     });
-}
-
-function showAddMitarbeiterForm() {
+  }
+  
+  static createMitarbeiterCard(mitarbeiter) {
+    return Dom.create('div', 'mitarbeiter-card', `
+      <img src="${mitarbeiter.bild}" alt="${mitarbeiter.name}" class="avatar avatar-lg" 
+           onerror="this.src='${PLACEHOLDER_IMAGE}'">
+      <h3>${mitarbeiter.name}</h3>
+      <p class="text-muted">ID: ${mitarbeiter.id}</p>
+      <div class="actions">
+        <button onclick="MitarbeiterController.edit(${mitarbeiter.id})" class="btn btn-warning">
+          ✏️ Bearbeiten
+        </button>
+        <button onclick="MitarbeiterController.delete(${mitarbeiter.id})" class="btn btn-danger">
+          🗑️ Löschen
+        </button>
+      </div>
+    `);
+  }
+  
+  static showAddForm() {
     currentEditingMitarbeiter = null;
-    const container = document.getElementById('mitarbeiterFormContainer');
+    this.showForm('Neuer Mitarbeiter', 'success');
+  }
+  
+  static showEditForm(mitarbeiterObj) {
+    currentEditingMitarbeiter = mitarbeiterObj.id;
+    this.showForm('Mitarbeiter bearbeiten', 'primary', mitarbeiterObj);
+  }
+  
+  static showForm(title, colorClass, mitarbeiterObj = null) {
+    const container = Dom.byId('mitarbeiterFormContainer');
     container.innerHTML = `
-        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #28a745;">
-            <h3>Neuer Mitarbeiter</h3>
-            <div class="form-group">
-                <label for="mitarbeiterName">Name:</label>
-                <input type="text" id="mitarbeiterName" required>
-            </div>
-            <div class="form-group">
-                <label for="mitarbeiterBild">Foto:</label>
-                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
-                <div id="imagePreview" style="margin-top: 10px;"></div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-success">💾 Speichern</button>
-                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
-            </div>
-        </form>
+      <form id="mitarbeiterForm" class="mitarbeiter-form border-${colorClass}">
+        <h3>${title}</h3>
+        <div class="form-group">
+          <label for="mitarbeiterName">Name:</label>
+          <input type="text" id="mitarbeiterName" class="form-control" 
+                 value="${mitarbeiterObj?.name || ''}" required>
+        </div>
+        <div class="form-group">
+          <label for="mitarbeiterBild">Foto${mitarbeiterObj ? ' ändern (optional)' : ''}:</label>
+          <input type="file" id="mitarbeiterBild" class="form-control" 
+                 accept="image/*" onchange="MitarbeiterController.previewImage()">
+          <div id="imagePreview" class="image-preview"></div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-${colorClass}">💾 Speichern</button>
+          <button type="button" onclick="MitarbeiterController.cancelForm()" class="btn btn-danger">
+            ❌ Abbrechen
+          </button>
+        </div>
+      </form>
     `;
     
-    container.style.display = 'block';
+    Dom.show(container);
     
-    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveMitarbeiter();
-    });
-}
-
-function showEditMitarbeiterForm(mitarbeiterObj) {
-    const container = document.getElementById('mitarbeiterFormContainer');
-    container.innerHTML = `
-        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #007bff;">
-            <h3>Mitarbeiter bearbeiten</h3>
-            <div class="form-group">
-                <label for="mitarbeiterName">Name:</label>
-                <input type="text" id="mitarbeiterName" value="${mitarbeiterObj.name}" required>
-            </div>
-            <div class="form-group">
-                <label for="mitarbeiterBild">Foto ändern (optional):</label>
-                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
-                <div id="imagePreview" style="margin-top: 10px;">
-                    <div style="margin-bottom: 10px;">
-                        <strong>Aktuelles Foto:</strong>
-                    </div>
-                    <img src="${mitarbeiterObj.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
-                </div>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-success">💾 Änderungen speichern</button>
-                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
-            </div>
-        </form>
-    `;
-    
-    container.style.display = 'block';
-    
-    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        saveMitarbeiter();
-    });
-}
-
-function previewImage() {
-    const file = document.getElementById('mitarbeiterBild').files[0];
-    const preview = document.getElementById('imagePreview');
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            if (currentEditingMitarbeiter) {
-                // Bei Bearbeitung: Neues Bild + aktuelles Bild anzeigen
-                const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
-                preview.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <strong>Neues Foto:</strong>
-                    </div>
-                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745; margin-right: 10px;">
-                    <div style="margin-top: 10px; margin-bottom: 10px;">
-                        <strong>Aktuelles Foto:</strong>
-                    </div>
-                    <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
-                `;
-            } else {
-                // Bei neuem Mitarbeiter: Nur Vorschau
-                preview.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        <strong>Vorschau:</strong>
-                    </div>
-                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745;">
-                `;
-            }
-        };
-        reader.readAsDataURL(file);
-    } else {
-        if (currentEditingMitarbeiter) {
-            // Zurück zum aktuellen Bild
-            const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
-            preview.innerHTML = `
-                <div style="margin-bottom: 10px;">
-                    <strong>Aktuelles Foto:</strong>
-                </div>
-                <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
-            `;
-        } else {
-            preview.innerHTML = '';
-        }
-    }
-}
-
-function editMitarbeiter(id) {
-    const mitarbeiterObj = getMitarbeiterById(id);
     if (mitarbeiterObj) {
-        currentEditingMitarbeiter = id;
-        showEditMitarbeiterForm(mitarbeiterObj);
+      this.showCurrentImage(mitarbeiterObj);
     }
-}
-
-function saveMitarbeiter() {
-    const name = document.getElementById('mitarbeiterName').value;
-    const file = document.getElementById('mitarbeiterBild').files[0];
+    
+    Dom.byId('mitarbeiterForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.save();
+    });
+  }
+  
+  static previewImage() {
+    const file = Dom.byId('mitarbeiterBild').files[0];
+    const preview = Dom.byId('imagePreview');
+    
+    if (!file) {
+      if (currentEditingMitarbeiter) {
+        const current = Utils.findById(mitarbeiter, currentEditingMitarbeiter);
+        this.showCurrentImage(current);
+      } else {
+        Dom.clear(preview);
+      }
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const html = currentEditingMitarbeiter 
+        ? this.getEditPreviewHTML(e.target.result)
+        : this.getNewPreviewHTML(e.target.result);
+      preview.innerHTML = html;
+    };
+    reader.readAsDataURL(file);
+  }
+  
+  static showCurrentImage(mitarbeiterObj) {
+    const preview = Dom.byId('imagePreview');
+    preview.innerHTML = `
+      <div class="preview-section">
+        <strong>Aktuelles Foto:</strong>
+        <img src="${mitarbeiterObj.bild}" class="preview-image avatar avatar-lg">
+      </div>
+    `;
+  }
+  
+  static getEditPreviewHTML(newImageSrc) {
+    const current = Utils.findById(mitarbeiter, currentEditingMitarbeiter);
+    return `
+      <div class="preview-section">
+        <strong>Neues Foto:</strong>
+        <img src="${newImageSrc}" class="preview-image avatar avatar-lg border-success">
+      </div>
+      <div class="preview-section">
+        <strong>Aktuelles Foto:</strong>
+        <img src="${current.bild}" class="preview-image avatar avatar-lg">
+      </div>
+    `;
+  }
+  
+  static getNewPreviewHTML(imageSrc) {
+    return `
+      <div class="preview-section">
+        <strong>Vorschau:</strong>
+        <img src="${imageSrc}" class="preview-image avatar avatar-lg border-success">
+      </div>
+    `;
+  }
+  
+  static save() {
+    const name = Dom.byId('mitarbeiterName').value.trim();
+    const file = Dom.byId('mitarbeiterBild').files[0];
+    
+    if (!name) {
+      UI.showError('Name ist erforderlich');
+      return;
+    }
     
     if (currentEditingMitarbeiter) {
-        // Mitarbeiter bearbeiten
-        const mitarbeiterObj = getMitarbeiterById(currentEditingMitarbeiter);
-        mitarbeiterObj.name = name;
-        
-        if (file) {
-            // Neues Bild hochgeladen
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                mitarbeiterObj.bild = e.target.result;
-                finishMitarbeiterSave();
-            };
-            reader.readAsDataURL(file);
-        } else {
-            // Kein neues Bild - nur Name aktualisieren
-            finishMitarbeiterSave();
-        }
+      this.updateMitarbeiter(name, file);
     } else {
-        // Neuer Mitarbeiter
-        const newId = getNextMitarbeiterId();
-        const newMitarbeiter = {
-            id: newId,
-            name: name,
-            bild: "https://via.placeholder.com/80"
-        };
-        
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                newMitarbeiter.bild = e.target.result;
-                mitarbeiter.push(newMitarbeiter);
-                finishMitarbeiterSave();
-            };
-            reader.readAsDataURL(file);
-        } else {
-            mitarbeiter.push(newMitarbeiter);
-            finishMitarbeiterSave();
-        }
+      this.createMitarbeiter(name, file);
     }
-}
-
-function finishMitarbeiterSave() {
-    cancelMitarbeiterForm();
-    renderMitarbeiterGrid();
-    saveToStorage();
+  }
+  
+  static updateMitarbeiter(name, file) {
+    const mitarbeiterObj = Utils.findById(mitarbeiter, currentEditingMitarbeiter);
+    mitarbeiterObj.name = name;
     
-    // Dienstplan-Anzeige aktualisieren falls sie geladen ist
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        mitarbeiterObj.bild = e.target.result;
+        this.finishSave('Mitarbeiter wurde aktualisiert!');
+      };
+      reader.readAsDataURL(file);
+    } else {
+      this.finishSave('Mitarbeiter wurde aktualisiert!');
+    }
+  }
+  
+  static createMitarbeiter(name, file) {
+    const newMitarbeiter = {
+      id: Utils.getNextId(mitarbeiter),
+      name: name,
+      bild: PLACEHOLDER_IMAGE
+    };
+    
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        newMitarbeiter.bild = e.target.result;
+        mitarbeiter.push(newMitarbeiter);
+        this.finishSave('Mitarbeiter wurde erstellt!');
+      };
+      reader.readAsDataURL(file);
+    } else {
+      mitarbeiter.push(newMitarbeiter);
+      this.finishSave('Mitarbeiter wurde erstellt!');
+    }
+  }
+  
+  static finishSave(message) {
+    this.cancelForm();
+    this.renderGrid();
+    Storage.save();
+    UI.showSuccess(message);
+    
+    // Update main view if loaded
     if (window.location.pathname === '/') {
-        renderDienstplanGrid();
+      DienstplanRenderer.renderGrid();
     }
     
-    // Success-Message
-    showSuccessMessage(currentEditingMitarbeiter ? 'Mitarbeiter wurde aktualisiert!' : 'Mitarbeiter wurde erstellt!');
+    currentEditingMitarbeiter = null;
+  }
+  
+  static cancelForm() {
+    const container = Dom.byId('mitarbeiterFormContainer');
+    Dom.hide(container);
+    currentEditingMitarbeiter = null;
+  }
+  
+  static edit(id) {
+    const mitarbeiterObj = Utils.findById(mitarbeiter, id);
+    if (mitarbeiterObj) {
+      this.showEditForm(mitarbeiterObj);
+    }
+  }
+  
+  static delete(id) {
+    const mitarbeiterObj = Utils.findById(mitarbeiter, id);
+    if (!mitarbeiterObj) return;
     
-    // Reset
-    currentEditingMitarbeiter = null;
-}
-
-function cancelMitarbeiterForm() {
-    document.getElementById('mitarbeiterFormContainer').style.display = 'none';
-    currentEditingMitarbeiter = null;
-}
-
-function deleteMitarbeiter(id) {
-    const mitarbeiterObj = getMitarbeiterById(id);
     if (confirm(`Mitarbeiter "${mitarbeiterObj.name}" wirklich löschen?\n\nDer Mitarbeiter wird auch aus dem Dienstplan entfernt.`)) {
-        // Aus Mitarbeiter-Array entfernen
-        mitarbeiter = mitarbeiter.filter(m => m.id !== id);
-        
-        // Aus Dienstplan entfernen
-        Object.keys(dienstplan).forEach(tag => {
-            Object.keys(dienstplan[tag]).forEach(schicht => {
-                dienstplan[tag][schicht] = dienstplan[tag][schicht].filter(mId => mId !== id);
-            });
-        });
-        
-        renderMitarbeiterGrid();
-        saveToStorage();
-        
-        // Dienstplan-Anzeige aktualisieren falls sie geladen ist
-        if (window.location.pathname === '/') {
-            renderDienstplanGrid();
-        }
-        
-        showSuccessMessage(`Mitarbeiter "${mitarbeiterObj.name}" wurde gelöscht.`);
+      // Remove from array
+      mitarbeiter = mitarbeiter.filter(m => m.id !== id);
+      
+      // Remove from dienstplan
+      DienstplanController.removeMitarbeiterFromAll(id);
+      
+      this.renderGrid();
+      Storage.save();
+      UI.showSuccess(`Mitarbeiter "${mitarbeiterObj.name}" wurde gelöscht.`);
+      
+      // Update main view if loaded
+      if (window.location.pathname === '/') {
+        DienstplanRenderer.renderGrid();
+      }
     }
+  }
+  
+  static getEmptyStateHTML() {
+    return `
+      <div class="empty-state">
+        <h3>Noch keine Mitarbeiter vorhanden</h3>
+        <p>Klicken Sie auf "Neuer Mitarbeiter" um den ersten Mitarbeiter hinzuzufügen.</p>
+      </div>
+    `;
+  }
 }
 
-// VISUELLER DIENSTPLAN EDITOR
-function showDienstplanEditor() {
-    const content = document.getElementById('adminContent');
+// DIENSTPLAN EDITOR
+class DienstplanEditor {
+  static show() {
+    const content = Dom.byId('adminContent');
     
-    // Prüfe ob Mitarbeiter vorhanden sind
     if (mitarbeiter.length === 0) {
-        content.innerHTML = `
-            <div style="text-align: center; padding: 40px; color: #6c757d;">
-                <h2>Keine Mitarbeiter vorhanden</h2>
-                <p style="margin-bottom: 20px;">Sie müssen zuerst Mitarbeiter hinzufügen, bevor Sie den Dienstplan bearbeiten können.</p>
-                <button onclick="switchAdminView('mitarbeiter')" class="btn btn-primary">Zur Mitarbeiterverwaltung</button>
-            </div>
-        `;
-        return;
+      content.innerHTML = this.getNoMitarbeiterHTML();
+      return;
     }
     
     content.innerHTML = `
-        <div class="dienstplan-bearbeitung">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2>Dienstplan bearbeiten</h2>
-                <div>
-                    <button onclick="resetDienstplan()" class="btn btn-warning">🔄 Zurücksetzen</button>
-                    <button onclick="saveDienstplan()" class="btn btn-success">💾 Speichern</button>
-                </div>
-            </div>
-            
-            <div class="alert" style="background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <strong>Anleitung:</strong> Klicken Sie auf eine Schicht, um die Mitarbeiter für diese Schicht auszuwählen.
-            </div>
-            
-            <div class="dienstplan-edit-grid" id="dienstplanEditGrid">
-                <!-- Wird dynamisch gefüllt -->
-            </div>
+      <div class="dienstplan-bearbeitung">
+        <div class="section-header">
+          <h2>Dienstplan bearbeiten</h2>
+          <div class="actions">
+            <button onclick="DienstplanEditor.reset()" class="btn btn-warning">
+              🔄 Zurücksetzen
+            </button>
+            <button onclick="DienstplanEditor.save()" class="btn btn-success">
+              💾 Speichern
+            </button>
+          </div>
         </div>
         
-        <!-- Mitarbeiter-Auswahl Modal -->
-        <div id="mitarbeiterAuswahlModal" class="mitarbeiter-auswahl-modal">
-            <div class="mitarbeiter-auswahl-content">
-                <div class="auswahl-header">
-                    <h2>Mitarbeiter auswählen</h2>
-                    <span class="close" onclick="closeMitarbeiterAuswahl()">&times;</span>
-                </div>
-                
-                <div class="auswahl-info">
-                    <h3 id="schichtInfo">Schicht auswählen</h3>
-                    <div class="selected-count" id="selectedCount">0 ausgewählt</div>
-                </div>
-                
-                <div class="search-container">
-                    <input type="text" class="search-input" id="mitarbeiterSearch" 
-                           placeholder="Mitarbeiter suchen..." 
-                           onkeyup="filterMitarbeiter()">
-                </div>
-                
-                <div class="mitarbeiter-auswahl-grid" id="mitarbeiterAuswahlGrid">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-                
-                <div class="auswahl-actions">
-                    <button onclick="clearSelection()" class="btn btn-warning">🗑️ Auswahl leeren</button>
-                    <div class="auswahl-buttons">
-                        <button onclick="closeMitarbeiterAuswahl()" class="btn btn-danger">❌ Abbrechen</button>
-                        <button onclick="saveSchichtAuswahl()" class="btn btn-success">💾 Übernehmen</button>
-                    </div>
-                </div>
-            </div>
+        <div class="alert alert-info">
+          <strong>Anleitung:</strong> Klicken Sie auf eine Schicht, um die Mitarbeiter für diese Schicht auszuwählen.
         </div>
+        
+        <div class="dienstplan-edit-grid" id="dienstplanEditGrid"></div>
+      </div>
+      
+      ${this.getModalHTML()}
     `;
     
-    renderDienstplanEditGrid();
-}
-
-function renderDienstplanEditGrid() {
-    const grid = document.getElementById('dienstplanEditGrid');
-    grid.innerHTML = '';
+    this.renderGrid();
+  }
+  
+  static renderGrid() {
+    const grid = Dom.byId('dienstplanEditGrid');
+    Dom.clear(grid);
     
-    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+    this.renderHeaders(grid);
+    this.renderSchichten(grid);
+  }
+  
+  static renderHeaders(grid) {
+    WOCHENTAGE.forEach(tag => {
+      const header = Dom.create('div', 'edit-tag-header', tag);
+      grid.appendChild(header);
+    });
+  }
+  
+  static renderSchichten(grid) {
+    SCHICHTEN.forEach(schicht => {
+      WOCHENTAGE.forEach(tag => {
+        const cell = this.createEditCell(tag, schicht);
+        grid.appendChild(cell);
+      });
+    });
+  }
+  
+  static createEditCell(tag, schicht) {
+    const cell = Dom.create('div', 'edit-schicht-cell');
+    cell.onclick = () => MitarbeiterAuswahl.open(tag, schicht);
     
-    // Tag-Header erstellen
-    wochentage.forEach(tag => {
-        const tagHeader = document.createElement('div');
-        tagHeader.className = 'edit-tag-header';
-        tagHeader.textContent = tag;
-        grid.appendChild(tagHeader);
+    const header = Dom.create('div', 'edit-schicht-header', schicht);
+    const container = Dom.create('div', 'edit-mitarbeiter-container');
+    
+    // Add current mitarbeiter
+    const mitarbeiterIds = dienstplan[tag]?.[schicht] || [];
+    mitarbeiterIds.forEach(id => {
+      const mitarbeiterObj = Utils.findById(mitarbeiter, id);
+      if (mitarbeiterObj) {
+        const item = Dom.create('div', 'edit-mitarbeiter-item', `
+          <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}" class="avatar avatar-sm">
+          <span>${Utils.formatName(mitarbeiterObj)}</span>
+        `);
+        container.appendChild(item);
+      }
     });
     
-    // Schichten erstellen
-    schichten.forEach(schicht => {
-        wochentage.forEach(tag => {
-            const schichtCell = document.createElement('div');
-            schichtCell.className = 'edit-schicht-cell';
-            schichtCell.onclick = () => openMitarbeiterAuswahl(tag, schicht);
-            
-            const schichtHeader = document.createElement('div');
-            schichtHeader.className = 'edit-schicht-header';
-            schichtHeader.textContent = schicht;
-            schichtCell.appendChild(schichtHeader);
-            
-            const mitarbeiterContainer = document.createElement('div');
-            mitarbeiterContainer.className = 'edit-mitarbeiter-container';
-            
-            // Mitarbeiter für diese Schicht anzeigen
-            if (dienstplan[tag] && dienstplan[tag][schicht] && dienstplan[tag][schicht].length > 0) {
-                dienstplan[tag][schicht].forEach(mitarbeiterId => {
-                    const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
-                    if (mitarbeiterObj) {
-                        const mitarbeiterDiv = document.createElement('div');
-                        mitarbeiterDiv.className = 'edit-mitarbeiter-item';
-                        mitarbeiterDiv.innerHTML = `
-                            <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
-                            <span>${formatMitarbeiterName(mitarbeiterObj)}</span>
-                        `;
-                        mitarbeiterContainer.appendChild(mitarbeiterDiv);
-                    }
-                });
-            }
-            
-            // Add-Button
-            const addButton = document.createElement('button');
-            addButton.className = 'edit-add-button';
-            addButton.textContent = '+ Mitarbeiter';
-            addButton.onclick = (e) => {
-                e.stopPropagation();
-                openMitarbeiterAuswahl(tag, schicht);
-            };
-            mitarbeiterContainer.appendChild(addButton);
-            
-            schichtCell.appendChild(mitarbeiterContainer);
-            grid.appendChild(schichtCell);
-        });
-    });
-}
-
-function openMitarbeiterAuswahl(tag, schicht) {
-    currentEditingSchicht = { tag, schicht };
+    // Add button
+    const addButton = Dom.create('button', 'edit-add-button', '+ Mitarbeiter');
+    addButton.onclick = (e) => {
+      e.stopPropagation();
+      MitarbeiterAuswahl.open(tag, schicht);
+    };
+    container.appendChild(addButton);
     
-    // Aktuell ausgewählte Mitarbeiter laden
-    currentSelectedMitarbeiter = dienstplan[tag][schicht] ? [...dienstplan[tag][schicht]] : [];
-    
-    // Info aktualisieren
-    document.getElementById('schichtInfo').textContent = `${tag} - ${schicht}`;
-    
-    // Suchfeld leeren
-    document.getElementById('mitarbeiterSearch').value = '';
-    
-    // Mitarbeiter laden
-    filteredMitarbeiter = [...mitarbeiter];
-    renderMitarbeiterAuswahlGrid();
-    
-    // Modal anzeigen
-    document.getElementById('mitarbeiterAuswahlModal').style.display = 'block';
-    
-    // Aktuell bearbeitete Zelle hervorheben
-    document.querySelectorAll('.edit-schicht-cell').forEach(cell => {
-        cell.classList.remove('editing');
-    });
-    
-    // Entsprechende Zelle finden und hervorheben
-    const cells = document.querySelectorAll('.edit-schicht-cell');
-    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
-    
-    const tagIndex = wochentage.indexOf(tag);
-    const schichtIndex = schichten.indexOf(schicht);
-    const cellIndex = schichtIndex * 7 + tagIndex;
-    
-    if (cells[cellIndex]) {
-        cells[cellIndex].classList.add('editing');
+    cell.appendChild(header);
+    cell.appendChild(container);
+    return cell;
+  }
+  
+  static reset() {
+    if (confirm('Dienstplan wirklich zurücksetzen? Alle Änderungen gehen verloren.')) {
+      dienstplan = createEmptyDienstplan();
+      this.renderGrid();
+      UI.showSuccess('Dienstplan wurde zurückgesetzt');
     }
+  }
+  
+  static save() {
+    Storage.save();
+    
+    // Update main view if loaded
+    if (window.location.pathname === '/') {
+      DienstplanRenderer.renderGrid();
+    }
+    
+    UI.showSuccess('Dienstplan wurde gespeichert!');
+  }
+  
+  static getNoMitarbeiterHTML() {
+    return `
+      <div class="empty-state">
+        <h2>Keine Mitarbeiter vorhanden</h2>
+        <p>Sie müssen zuerst Mitarbeiter hinzufügen, bevor Sie den Dienstplan bearbeiten können.</p>
+        <button onclick="AdminController.switchView('mitarbeiter')" class="btn btn-primary">
+          Zur Mitarbeiterverwaltung
+        </button>
+      </div>
+    `;
+  }
+  
+  static getModalHTML() {
+    return `
+      <div id="mitarbeiterAuswahlModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>Mitarbeiter auswählen</h2>
+            <span class="close" onclick="MitarbeiterAuswahl.close()">&times;</span>
+          </div>
+          
+          <div class="modal-info">
+            <h3 id="schichtInfo">Schicht auswählen</h3>
+            <div class="selected-count" id="selectedCount">0 ausgewählt</div>
+          </div>
+          
+          <div class="search-container">
+            <input type="text" class="search-input" id="mitarbeiterSearch" 
+                   placeholder="Mitarbeiter suchen...">
+          </div>
+          
+          <div class="mitarbeiter-auswahl-grid" id="mitarbeiterAuswahlGrid"></div>
+          
+          <div class="modal-actions">
+            <button onclick="MitarbeiterAuswahl.clearSelection()" class="btn btn-warning">
+              🗑️ Auswahl leeren
+            </button>
+            <div class="action-buttons">
+              <button onclick="MitarbeiterAuswahl.close()" class="btn btn-danger">
+                ❌ Abbrechen
+              </button>
+              <button onclick="MitarbeiterAuswahl.save()" class="btn btn-success">
+                💾 Übernehmen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 }
 
-function renderMitarbeiterAuswahlGrid() {
-    const grid = document.getElementById('mitarbeiterAuswahlGrid');
-    grid.innerHTML = '';
+// MITARBEITER AUSWAHL MODAL
+class MitarbeiterAuswahl {
+  static open(tag, schicht) {
+    currentEditingSchicht = { tag, schicht };
+    currentSelectedMitarbeiter = [...(dienstplan[tag]?.[schicht] || [])];
+    
+    Dom.byId('schichtInfo').textContent = `${tag} - ${schicht}`;
+    Dom.byId('mitarbeiterSearch').value = '';
+    
+    filteredMitarbeiter = [...mitarbeiter];
+    this.renderGrid();
+    this.highlightEditingCell(tag, schicht);
+    
+    Dom.show(Dom.byId('mitarbeiterAuswahlModal'));
+  }
+  
+  static renderGrid() {
+    const grid = Dom.byId('mitarbeiterAuswahlGrid');
+    Dom.clear(grid);
     
     if (filteredMitarbeiter.length === 0) {
-        grid.innerHTML = `
-            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
-                <h3>Keine Mitarbeiter gefunden</h3>
-                <p>Versuchen Sie einen anderen Suchbegriff.</p>
-            </div>
-        `;
-        return;
+      grid.innerHTML = this.getEmptySearchHTML();
+      return;
     }
     
     filteredMitarbeiter.forEach(m => {
-        const card = document.createElement('div');
-        card.className = 'auswahl-mitarbeiter-card';
-        card.onclick = () => toggleMitarbeiterSelection(m.id);
-        
-        if (currentSelectedMitarbeiter.includes(m.id)) {
-            card.classList.add('selected');
-        }
-        
-        card.innerHTML = `
-            <img src="${m.bild}" alt="${m.name}">
-            <h4>${m.name}</h4>
-            <div class="checkmark">✓</div>
-        `;
-        
-        grid.appendChild(card);
+      const card = this.createMitarbeiterCard(m);
+      grid.appendChild(card);
     });
     
-    updateSelectedCount();
-}
-
-function toggleMitarbeiterSelection(mitarbeiterId) {
-    if (currentSelectedMitarbeiter.includes(mitarbeiterId)) {
-        currentSelectedMitarbeiter = currentSelectedMitarbeiter.filter(id => id !== mitarbeiterId);
-    } else {
-        currentSelectedMitarbeiter.push(mitarbeiterId);
+    this.updateSelectedCount();
+  }
+  
+  static createMitarbeiterCard(mitarbeiterObj) {
+    const card = Dom.create('div', 'auswahl-mitarbeiter-card');
+    card.onclick = () => this.toggleSelection(mitarbeiterObj.id);
+    
+    if (currentSelectedMitarbeiter.includes(mitarbeiterObj.id)) {
+      card.classList.add('selected');
     }
     
-    // Karte aktualisieren
-    const cards = document.querySelectorAll('.auswahl-mitarbeiter-card');
-    cards.forEach(card => {
-        const img = card.querySelector('img');
-        const mitarbeiterObj = mitarbeiter.find(m => m.bild === img.src);
-        if (mitarbeiterObj && mitarbeiterObj.id === mitarbeiterId) {
-            card.classList.toggle('selected');
-        }
-    });
+    card.innerHTML = `
+      <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}" class="avatar avatar-md">
+      <h4>${mitarbeiterObj.name}</h4>
+      <div class="checkmark">✓</div>
+    `;
     
-    updateSelectedCount();
-}
-
-function updateSelectedCount() {
+    return card;
+  }
+  
+  static toggleSelection(mitarbeiterId) {
+    const index = currentSelectedMitarbeiter.indexOf(mitarbeiterId);
+    
+    if (index > -1) {
+      currentSelectedMitarbeiter.splice(index, 1);
+    } else {
+      currentSelectedMitarbeiter.push(mitarbeiterId);
+    }
+    
+    this.renderGrid();
+  }
+  
+  static updateSelectedCount() {
     const count = currentSelectedMitarbeiter.length;
-    document.getElementById('selectedCount').textContent = `${count} ausgewählt`;
-}
-
-function filterMitarbeiter() {
-    const searchTerm = document.getElementById('mitarbeiterSearch').value.toLowerCase();
-    
-    if (searchTerm === '') {
-        filteredMitarbeiter = [...mitarbeiter];
-    } else {
-        filteredMitarbeiter = mitarbeiter.filter(m => 
-            m.name.toLowerCase().includes(searchTerm)
-        );
-    }
-    
-    renderMitarbeiterAuswahlGrid();
-}
-
-function clearSelection() {
+    Dom.byId('selectedCount').textContent = `${count} ausgewählt`;
+  }
+  
+  static clearSelection() {
     currentSelectedMitarbeiter = [];
-    renderMitarbeiterAuswahlGrid();
-}
-
-function saveSchichtAuswahl() {
-    if (currentEditingSchicht) {
-        const { tag, schicht } = currentEditingSchicht;
-        
-        // Dienstplan aktualisieren
-        dienstplan[tag][schicht] = [...currentSelectedMitarbeiter];
-        
-        // Nachtschicht automatisch zu Frühdienst des nächsten Tags
-        if (schicht === 'Nachtdienst') {
-            const nextDay = getNextDay(tag);
-            if (nextDay) {
-                currentSelectedMitarbeiter.forEach(mitarbeiterId => {
-                    if (!dienstplan[nextDay]['Frühdienst'].includes(mitarbeiterId)) {
-                        dienstplan[nextDay]['Frühdienst'].push(mitarbeiterId);
-                    }
-                });
-            }
+    this.renderGrid();
+  }
+  
+  static save() {
+    if (!currentEditingSchicht) return;
+    
+    const { tag, schicht } = currentEditingSchicht;
+    dienstplan[tag][schicht] = [...currentSelectedMitarbeiter];
+    
+    // Auto-assign night shift to next day's early shift
+    if (schicht === 'Nachtdienst') {
+      const nextDay = Utils.getNextDay(tag);
+      const nextDayEarly = dienstplan[nextDay]['Frühdienst'];
+      
+      currentSelectedMitarbeiter.forEach(id => {
+        if (!nextDayEarly.includes(id)) {
+          nextDayEarly.push(id);
         }
-        
-        // Grid aktualisieren
-        renderDienstplanEditGrid();
-        
-        // Modal schließen
-        closeMitarbeiterAuswahl();
-        
-        // Success-Message
-        showSuccessMessage(`${tag} - ${schicht} wurde aktualisiert (${currentSelectedMitarbeiter.length} Mitarbeiter)`);
+      });
     }
-}
-
-function closeMitarbeiterAuswahl() {
-    document.getElementById('mitarbeiterAuswahlModal').style.display = 'none';
+    
+    DienstplanEditor.renderGrid();
+    this.close();
+    
+    const count = currentSelectedMitarbeiter.length;
+    UI.showSuccess(`${tag} - ${schicht} wurde aktualisiert (${count} Mitarbeiter)`);
+  }
+  
+  static close() {
+    Dom.hide(Dom.byId('mitarbeiterAuswahlModal'));
     currentEditingSchicht = null;
     currentSelectedMitarbeiter = [];
     
-    // Hervorhebung entfernen
+    // Remove editing highlight
     document.querySelectorAll('.edit-schicht-cell').forEach(cell => {
-        cell.classList.remove('editing');
+      cell.classList.remove('editing');
     });
-}
-
-function resetDienstplan() {
-    if (confirm('Dienstplan wirklich zurücksetzen? Alle Änderungen gehen verloren.')) {
-        // Alle Schichten leeren
-        Object.keys(dienstplan).forEach(tag => {
-            Object.keys(dienstplan[tag]).forEach(schicht => {
-                dienstplan[tag][schicht] = [];
-            });
-        });
-        
-        renderDienstplanEditGrid();
-        showSuccessMessage('Dienstplan wurde zurückgesetzt');
-    }
-}
-
-function saveDienstplan() {
-    saveToStorage();
+  }
+  
+  static highlightEditingCell(tag, schicht) {
+    document.querySelectorAll('.edit-schicht-cell').forEach(cell => {
+      cell.classList.remove('editing');
+    });
     
-    // Hauptansicht aktualisieren falls geöffnet
-    if (window.location.pathname === '/') {
-        renderDienstplanGrid();
-    }
+    const tagIndex = WOCHENTAGE.indexOf(tag);
+    const schichtIndex = SCHICHTEN.indexOf(schicht);
+    const cellIndex = schichtIndex * 7 + tagIndex;
+    const cells = document.querySelectorAll('.edit-schicht-cell');
     
-    showSuccessMessage('Dienstplan wurde gespeichert!');
-}
-
-// SUCCESS MESSAGE
-function showSuccessMessage(message) {
-    // Entferne vorhandene Messages
-    const existingMessage = document.querySelector('.success-message');
-    if (existingMessage) {
-        existingMessage.remove();
+    if (cells[cellIndex]) {
+      cells[cellIndex].classList.add('editing');
     }
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'success-message';
-    messageDiv.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #28a745;
-        color: white;
-        padding: 15px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        z-index: 1000;
-        font-weight: 600;
-        animation: slideIn 0.3s ease-out;
+  }
+  
+  static getEmptySearchHTML() {
+    return `
+      <div class="empty-state">
+        <h3>Keine Mitarbeiter gefunden</h3>
+        <p>Versuchen Sie einen anderen Suchbegriff.</p>
+      </div>
     `;
-    messageDiv.textContent = message;
+  }
+}
+
+// DIENSTPLAN CONTROLLER
+class DienstplanController {
+  static removeMitarbeiterFromAll(mitarbeiterId) {
+    WOCHENTAGE.forEach(tag => {
+      SCHICHTEN.forEach(schicht => {
+        dienstplan[tag][schicht] = dienstplan[tag][schicht].filter(id => id !== mitarbeiterId);
+      });
+    });
+  }
+}
+
+// UI UTILITIES
+class UI {
+  static showSuccess(message) {
+    this.showMessage(message, 'success');
+  }
+  
+  static showError(message) {
+    this.showMessage(message, 'error');
+  }
+  
+  static showMessage(message, type) {
+    // Remove existing messages
+    const existing = document.querySelector('.toast-message');
+    if (existing) existing.remove();
     
-    document.body.appendChild(messageDiv);
+    const toast = Dom.create('div', `toast-message toast-${type}`, message);
+    toast.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: ${type === 'success' ? '#28a745' : '#dc3545'};
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      font-weight: 600;
+      animation: slideIn 0.3s ease-out;
+    `;
     
-    // Nach 3 Sekunden ausblenden
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 3 seconds
     setTimeout(() => {
-        messageDiv.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => {
-            if (messageDiv.parentNode) {
-                messageDiv.parentNode.removeChild(messageDiv);
-            }
-        }, 300);
+      if (toast.parentNode) {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+      }
     }, 3000);
+  }
 }
 
 // STORAGE
-function saveToStorage() {
-    localStorage.setItem('dienstplan_mitarbeiter', JSON.stringify(mitarbeiter));
-    localStorage.setItem('dienstplan_plan', JSON.stringify(dienstplan));
-}
-
-function loadFromStorage() {
-    const savedMitarbeiter = localStorage.getItem('dienstplan_mitarbeiter');
-    const savedPlan = localStorage.getItem('dienstplan_plan');
+class Storage {
+  static save() {
+    localStorage.setItem(STORAGE_KEYS.mitarbeiter, JSON.stringify(mitarbeiter));
+    localStorage.setItem(STORAGE_KEYS.plan, JSON.stringify(dienstplan));
+  }
+  
+  static load() {
+    const savedMitarbeiter = localStorage.getItem(STORAGE_KEYS.mitarbeiter);
+    const savedPlan = localStorage.getItem(STORAGE_KEYS.plan);
     
     if (savedMitarbeiter) {
+      try {
         mitarbeiter = JSON.parse(savedMitarbeiter);
+      } catch (e) {
+        console.error('Error loading mitarbeiter:', e);
+        mitarbeiter = [];
+      }
     }
     
     if (savedPlan) {
+      try {
         dienstplan = JSON.parse(savedPlan);
+      } catch (e) {
+        console.error('Error loading dienstplan:', e);
+        dienstplan = createEmptyDienstplan();
+      }
     }
+  }
 }
 
-// EVENT LISTENERS
-document.addEventListener('DOMContentLoaded', function() {
-    loadFromStorage();
-    initRouter();
-});
-
-// Navigation ohne Reload
-window.addEventListener('popstate', initRouter);
-
-// Links abfangen
-document.addEventListener('click', function(e) {
-    if (e.target.tagName === 'A' && e.target.getAttribute('href')) {
-        const href = e.target.getAttribute('href');
-        if (href === '/' || href === '/admin') {
-            e.preventDefault();
-            window.history.pushState({}, '', href);
-            initRouter();
-        }
+// EVENT SETUP
+class EventManager {
+  static init() {
+    // Router events
+    window.addEventListener('popstate', Router.init);
+    
+    // Global click handler for navigation
+    document.addEventListener('click', this.handleNavigation);
+    
+    // Modal close on outside click
+    window.addEventListener('click', this.handleModalClose);
+    
+    // Search functionality
+    const searchInput = Dom.byId('mitarbeiterSearch');
+    if (searchInput) {
+      searchInput.addEventListener('keyup', Utils.debounce(() => {
+        this.handleSearch();
+      }, 300));
     }
-});
-
-// Modal schließen bei Klick außerhalb
-window.onclick = function(event) {
-    const modal = document.getElementById('mitarbeiterAuswahlModal');
-    if (event.target === modal) {
-        closeMitarbeiterAuswahl();
+  }
+  
+  static handleNavigation(e) {
+    if (e.target.tagName === 'A') {
+      const href = e.target.getAttribute('href');
+      if (href === '/' || href === '/admin') {
+        e.preventDefault();
+        Router.navigate(href);
+      }
     }
+  }
+  
+  static handleModalClose(e) {
+    const modal = Dom.byId('mitarbeiterAuswahlModal');
+    if (modal && e.target === modal) {
+      MitarbeiterAuswahl.close();
+    }
+  }
+  
+  static handleSearch() {
+    const searchTerm = Dom.byId('mitarbeiterSearch')?.value.toLowerCase() || '';
+    
+    filteredMitarbeiter = searchTerm === '' 
+      ? [...mitarbeiter]
+      : mitarbeiter.filter(m => m.name.toLowerCase().includes(searchTerm));
+    
+    MitarbeiterAuswahl.renderGrid();
+  }
 }
+
+// INITIALIZATION
+document.addEventListener('DOMContentLoaded', () => {
+  Storage.load();
+  Router.init();
+  EventManager.init();
+});
+
+// GLOBAL FUNCTIONS (for backwards compatibility)
+window.AdminController = AdminController;
+window.MitarbeiterController = MitarbeiterController;
+window.DienstplanEditor = DienstplanEditor;
+window.MitarbeiterAuswahl = MitarbeiterAuswahl;
