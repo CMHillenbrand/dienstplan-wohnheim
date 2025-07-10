@@ -296,116 +296,329 @@ function deleteMitarbeiter(id) {
     }
 }
 
-// DIENSTPLAN EDITOR
+// Globale Variablen für die Auswahl
+let currentEditingSchicht = null;
+let currentSelectedMitarbeiter = [];
+let filteredMitarbeiter = [];
+
+// VISUELLER DIENSTPLAN EDITOR
 function showDienstplanEditor() {
     const content = document.getElementById('adminContent');
     content.innerHTML = `
         <div class="dienstplan-bearbeitung">
-            <h2>Dienstplan bearbeiten</h2>
-            
-            <div class="dienstplan-editor">
-                <div class="tag-selector">
-                    <h3>Tag auswählen</h3>
-                    <div id="tagButtons">
-                        ${['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'].map(tag => 
-                            `<button type="button" onclick="selectTag('${tag}')" class="tag-btn ${tag === currentEditingTag ? 'active' : ''}">${tag}</button>`
-                        ).join('')}
-                    </div>
-                </div>
-                
-                <div class="schicht-editor" id="schichtEditor">
-                    <!-- Wird dynamisch gefüllt -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>Dienstplan bearbeiten</h2>
+                <div>
+                    <button onclick="resetDienstplan()" class="btn btn-warning">🔄 Zurücksetzen</button>
+                    <button onclick="saveDienstplan()" class="btn btn-success">💾 Speichern</button>
                 </div>
             </div>
             
-            <div style="margin-top: 20px; text-align: center;">
-                <button onclick="saveDienstplan()" class="btn btn-success">💾 Dienstplan speichern</button>
+            <div class="alert" style="background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <strong>Anleitung:</strong> Klicken Sie auf eine Schicht, um die Mitarbeiter für diese Schicht auszuwählen.
+            </div>
+            
+            <div class="dienstplan-edit-grid" id="dienstplanEditGrid">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+        
+        <!-- Mitarbeiter-Auswahl Modal -->
+        <div id="mitarbeiterAuswahlModal" class="mitarbeiter-auswahl-modal">
+            <div class="mitarbeiter-auswahl-content">
+                <div class="auswahl-header">
+                    <h2>Mitarbeiter auswählen</h2>
+                    <span class="close" onclick="closeMitarbeiterAuswahl()">&times;</span>
+                </div>
+                
+                <div class="auswahl-info">
+                    <h3 id="schichtInfo">Schicht auswählen</h3>
+                    <div class="selected-count" id="selectedCount">0 ausgewählt</div>
+                </div>
+                
+                <div class="search-container">
+                    <input type="text" class="search-input" id="mitarbeiterSearch" 
+                           placeholder="Mitarbeiter suchen..." 
+                           onkeyup="filterMitarbeiter()">
+                </div>
+                
+                <div class="mitarbeiter-auswahl-grid" id="mitarbeiterAuswahlGrid">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+                
+                <div class="auswahl-actions">
+                    <button onclick="clearSelection()" class="btn btn-warning">🗑️ Auswahl leeren</button>
+                    <div class="auswahl-buttons">
+                        <button onclick="closeMitarbeiterAuswahl()" class="btn btn-danger">❌ Abbrechen</button>
+                        <button onclick="saveSchichtAuswahl()" class="btn btn-success">💾 Übernehmen</button>
+                    </div>
+                </div>
             </div>
         </div>
     `;
     
-    loadSchichtEditor();
+    renderDienstplanEditGrid();
 }
 
-function selectTag(tag) {
-    currentEditingTag = tag;
+function renderDienstplanEditGrid() {
+    const grid = document.getElementById('dienstplanEditGrid');
+    grid.innerHTML = '';
     
-    // Buttons aktualisieren
-    const buttons = document.querySelectorAll('.tag-btn');
-    buttons.forEach(btn => {
-        btn.classList.remove('active');
-        if (btn.textContent === tag) {
-            btn.classList.add('active');
-        }
-    });
-    
-    loadSchichtEditor();
-}
-
-function loadSchichtEditor() {
-    const editor = document.getElementById('schichtEditor');
+    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
     const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
     
-    editor.innerHTML = '';
+    // Tag-Header erstellen
+    wochentage.forEach(tag => {
+        const tagHeader = document.createElement('div');
+        tagHeader.className = 'edit-tag-header';
+        tagHeader.textContent = tag;
+        grid.appendChild(tagHeader);
+    });
     
+    // Schichten erstellen
     schichten.forEach(schicht => {
-        const group = document.createElement('div');
-        group.className = 'schicht-group';
-        group.innerHTML = `
-            <h3>${schicht}</h3>
-            <div class="mitarbeiter-checkboxes">
-                ${mitarbeiter.map(m => `
-                    <div class="checkbox-item ${dienstplan[currentEditingTag][schicht].includes(m.id) ? 'selected' : ''}">
-                        <input type="checkbox" id="${schicht}_${m.id}" 
-                               ${dienstplan[currentEditingTag][schicht].includes(m.id) ? 'checked' : ''}
-                               onchange="toggleMitarbeiterSchicht('${schicht}', ${m.id}, this.checked)">
-                        <img src="${m.bild}" alt="${m.name}">
-                        <span>${formatMitarbeiterName(m)}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-        editor.appendChild(group);
+        wochentage.forEach(tag => {
+            const schichtCell = document.createElement('div');
+            schichtCell.className = 'edit-schicht-cell';
+            schichtCell.onclick = () => openMitarbeiterAuswahl(tag, schicht);
+            
+            const schichtHeader = document.createElement('div');
+            schichtHeader.className = 'edit-schicht-header';
+            schichtHeader.textContent = schicht;
+            schichtCell.appendChild(schichtHeader);
+            
+            const mitarbeiterContainer = document.createElement('div');
+            mitarbeiterContainer.className = 'edit-mitarbeiter-container';
+            
+            // Mitarbeiter für diese Schicht anzeigen
+            if (dienstplan[tag] && dienstplan[tag][schicht]) {
+                dienstplan[tag][schicht].forEach(mitarbeiterId => {
+                    const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
+                    if (mitarbeiterObj) {
+                        const mitarbeiterDiv = document.createElement('div');
+                        mitarbeiterDiv.className = 'edit-mitarbeiter-item';
+                        mitarbeiterDiv.innerHTML = `
+                            <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
+                            <span>${formatMitarbeiterName(mitarbeiterObj)}</span>
+                        `;
+                        mitarbeiterContainer.appendChild(mitarbeiterDiv);
+                    }
+                });
+            }
+            
+            // Add-Button
+            const addButton = document.createElement('button');
+            addButton.className = 'edit-add-button';
+            addButton.textContent = '+ Mitarbeiter';
+            addButton.onclick = (e) => {
+                e.stopPropagation();
+                openMitarbeiterAuswahl(tag, schicht);
+            };
+            mitarbeiterContainer.appendChild(addButton);
+            
+            schichtCell.appendChild(mitarbeiterContainer);
+            grid.appendChild(schichtCell);
+        });
     });
 }
 
-function toggleMitarbeiterSchicht(schicht, mitarbeiterId, checked) {
-    if (checked) {
-        if (!dienstplan[currentEditingTag][schicht].includes(mitarbeiterId)) {
-            dienstplan[currentEditingTag][schicht].push(mitarbeiterId);
-        }
-    } else {
-        dienstplan[currentEditingTag][schicht] = dienstplan[currentEditingTag][schicht].filter(id => id !== mitarbeiterId);
-    }
+function openMitarbeiterAuswahl(tag, schicht) {
+    currentEditingSchicht = { tag, schicht };
     
-    // Nachtschicht automatisch zu Frühdienst des nächsten Tags
-    if (schicht === 'Nachtdienst' && checked) {
-        const nextDay = getNextDay(currentEditingTag);
-        if (nextDay && !dienstplan[nextDay]['Frühdienst'].includes(mitarbeiterId)) {
-            dienstplan[nextDay]['Frühdienst'].push(mitarbeiterId);
-        }
-    }
+    // Aktuell ausgewählte Mitarbeiter laden
+    currentSelectedMitarbeiter = dienstplan[tag][schicht] ? [...dienstplan[tag][schicht]] : [];
     
-    // Checkbox-Item Style aktualisieren
-    const checkboxItem = document.querySelector(`#${schicht}_${mitarbeiterId}`).parentElement;
-    if (checked) {
-        checkboxItem.classList.add('selected');
-    } else {
-        checkboxItem.classList.remove('selected');
+    // Info aktualisieren
+    document.getElementById('schichtInfo').textContent = `${tag} - ${schicht}`;
+    
+    // Suchfeld leeren
+    document.getElementById('mitarbeiterSearch').value = '';
+    
+    // Mitarbeiter laden
+    filteredMitarbeiter = [...mitarbeiter];
+    renderMitarbeiterAuswahlGrid();
+    
+    // Modal anzeigen
+    document.getElementById('mitarbeiterAuswahlModal').style.display = 'block';
+    
+    // Aktuell bearbeitete Zelle hervorheben
+    document.querySelectorAll('.edit-schicht-cell').forEach(cell => {
+        cell.classList.remove('editing');
+    });
+    
+    // Entsprechende Zelle finden und hervorheben
+    const cells = document.querySelectorAll('.edit-schicht-cell');
+    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+    
+    const tagIndex = wochentage.indexOf(tag);
+    const schichtIndex = schichten.indexOf(schicht);
+    const cellIndex = schichtIndex * 7 + tagIndex;
+    
+    if (cells[cellIndex]) {
+        cells[cellIndex].classList.add('editing');
     }
 }
 
+function renderMitarbeiterAuswahlGrid() {
+    const grid = document.getElementById('mitarbeiterAuswahlGrid');
+    grid.innerHTML = '';
+    
+    if (filteredMitarbeiter.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
+                <h3>Keine Mitarbeiter gefunden</h3>
+                <p>Versuchen Sie einen anderen Suchbegriff.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    filteredMitarbeiter.forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'auswahl-mitarbeiter-card';
+        card.onclick = () => toggleMitarbeiterSelection(m.id);
+        
+        if (currentSelectedMitarbeiter.includes(m.id)) {
+            card.classList.add('selected');
+        }
+        
+        card.innerHTML = `
+            <img src="${m.bild}" alt="${m.name}">
+            <h4>${m.name}</h4>
+            <div class="checkmark">✓</div>
+        `;
+        
+        grid.appendChild(card);
+    });
+    
+    updateSelectedCount();
+}
+
+function toggleMitarbeiterSelection(mitarbeiterId) {
+    if (currentSelectedMitarbeiter.includes(mitarbeiterId)) {
+        currentSelectedMitarbeiter = currentSelectedMitarbeiter.filter(id => id !== mitarbeiterId);
+    } else {
+        currentSelectedMitarbeiter.push(mitarbeiterId);
+    }
+    
+    // Karte aktualisieren
+    const cards = document.querySelectorAll('.auswahl-mitarbeiter-card');
+    cards.forEach(card => {
+        const img = card.querySelector('img');
+        const mitarbeiterObj = mitarbeiter.find(m => m.bild === img.src);
+        if (mitarbeiterObj && mitarbeiterObj.id === mitarbeiterId) {
+            card.classList.toggle('selected');
+        }
+    });
+    
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const count = currentSelectedMitarbeiter.length;
+    document.getElementById('selectedCount').textContent = `${count} ausgewählt`;
+}
+
+function filterMitarbeiter() {
+    const searchTerm = document.getElementById('mitarbeiterSearch').value.toLowerCase();
+    
+    if (searchTerm === '') {
+        filteredMitarbeiter = [...mitarbeiter];
+    } else {
+        filteredMitarbeiter = mitarbeiter.filter(m => 
+            m.name.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    renderMitarbeiterAuswahlGrid();
+}
+
+function clearSelection() {
+    currentSelectedMitarbeiter = [];
+    renderMitarbeiterAuswahlGrid();
+}
+
+function saveSchichtAuswahl() {
+    if (currentEditingSchicht) {
+        const { tag, schicht } = currentEditingSchicht;
+        
+        // Dienstplan aktualisieren
+        dienstplan[tag][schicht] = [...currentSelectedMitarbeiter];
+        
+        // Nachtschicht automatisch zu Frühdienst des nächsten Tags
+        if (schicht === 'Nachtdienst') {
+            const nextDay = getNextDay(tag);
+            if (nextDay) {
+                currentSelectedMitarbeiter.forEach(mitarbeiterId => {
+                    if (!dienstplan[nextDay]['Frühdienst'].includes(mitarbeiterId)) {
+                        dienstplan[nextDay]['Frühdienst'].push(mitarbeiterId);
+                    }
+                });
+            }
+        }
+        
+        // Grid aktualisieren
+        renderDienstplanEditGrid();
+        
+        // Modal schließen
+        closeMitarbeiterAuswahl();
+        
+        // Success-Message
+        showSuccessMessage(`${tag} - ${schicht} wurde aktualisiert (${currentSelectedMitarbeiter.length} Mitarbeiter)`);
+    }
+}
+
+function closeMitarbeiterAuswahl() {
+    document.getElementById('mitarbeiterAuswahlModal').style.display = 'none';
+    currentEditingSchicht = null;
+    currentSelectedMitarbeiter = [];
+    
+    // Hervorhebung entfernen
+    document.querySelectorAll('.edit-schicht-cell').forEach(cell => {
+        cell.classList.remove('editing');
+    });
+}
+
+function resetDienstplan() {
+    if (confirm('Dienstplan wirklich zurücksetzen? Alle Änderungen gehen verloren.')) {
+        // Alle Schichten leeren
+        Object.keys(dienstplan).forEach(tag => {
+            Object.keys(dienstplan[tag]).forEach(schicht => {
+                dienstplan[tag][schicht] = [];
+            });
+        });
+        
+        renderDienstplanEditGrid();
+        showSuccessMessage('Dienstplan wurde zurückgesetzt');
+    }
+}
+
+function saveDienstplan() {
+    saveToStorage();
+    
+    // Hauptansicht aktualisieren falls geöffnet
+    if (window.location.pathname === '/') {
+        renderDienstplanGrid();
+    }
+    
+    showSuccessMessage('Dienstplan wurde gespeichert!');
+}
+
+// Bestehende getNextDay Funktion...
 function getNextDay(currentDay) {
     const tage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
     const index = tage.indexOf(currentDay);
     return index === 6 ? 'Montag' : tage[index + 1];
 }
 
-function saveDienstplan() {
-    saveToStorage();
-    alert('Dienstplan wurde gespeichert!');
+// Modal schließen bei Klick außerhalb
+window.onclick = function(event) {
+    const modal = document.getElementById('mitarbeiterAuswahlModal');
+    if (event.target === modal) {
+        closeMitarbeiterAuswahl();
+    }
 }
-
 // STORAGE
 function saveToStorage() {
     localStorage.setItem('dienstplan_mitarbeiter', JSON.stringify(mitarbeiter));
