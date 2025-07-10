@@ -976,3 +976,25 @@ window.onclick = function(event) {
         closeMitarbeiterAuswahl();
     }
 }
+
+// Bessere Namenformatierung für TV-Anzeige
+function formatMitarbeiterName(mitarbeiter) {
+    const parts = mitarbeiter.name.split(' ');
+    if (parts.length > 1) {
+        // Vorname + Nachname-Initial
+        return parts[0] + ' ' + parts[1].charAt(0) + '.';
+    }
+    return parts[0];
+}
+
+// Für sehr lange Namen weitere Kürzung
+function formatMitarbeiterNameShort(mitarbeiter) {
+    const parts = mitarbeiter.name.split(' ');
+    if (parts.length > 1) {
+        if (parts[0].length > 8) {
+            return parts[0].substring(0, 8) + '. ' + parts[1].charAt(0) + '.';
+        }
+        return parts[0] + ' ' + parts[1].charAt(0) + '.';
+    }
+    return parts[0].length > 10 ? parts[0].substring(0, 10) + '...' : parts[0];
+}
