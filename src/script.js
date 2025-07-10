@@ -1,4 +1,4 @@
-// Daten
+// Daten bleiben gleich...
 let mitarbeiter = [
     { id: 1, name: "Anna Müller", bild: "https://via.placeholder.com/80" },
     { id: 2, name: "Max Mustermann", bild: "https://via.placeholder.com/80" },
@@ -42,62 +42,50 @@ function getMitarbeiterById(id) {
     return mitarbeiter.find(m => m.id === id);
 }
 
-// DIENSTPLAN ANZEIGE
+// DIENSTPLAN ANZEIGE (Grid-Layout)
 function showDienstplanView() {
     const app = document.getElementById('app');
     app.innerHTML = `
         <div class="dienstplan-view">
-            <table class="dienstplan-table">
-                <thead>
-                    <tr>
-                        <th>Tag</th>
-                        <th>Schicht</th>
-                        <th>Mitarbeiter</th>
-                    </tr>
-                </thead>
-                <tbody id="dienstplanTableBody">
-                    <!-- Wird dynamisch gefüllt -->
-                </tbody>
-            </table>
+            <div class="dienstplan-grid" id="dienstplanGrid">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
         </div>
     `;
     
-    renderDienstplanTable();
+    renderDienstplanGrid();
 }
 
-function renderDienstplanTable() {
-    const tbody = document.getElementById('dienstplanTableBody');
-    tbody.innerHTML = '';
+function renderDienstplanGrid() {
+    const grid = document.getElementById('dienstplanGrid');
+    grid.innerHTML = '';
     
     const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
     const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
     
+    // Tag-Header erstellen
     wochentage.forEach(tag => {
-        schichten.forEach((schicht, schichtIndex) => {
-            const row = document.createElement('tr');
+        const tagHeader = document.createElement('div');
+        tagHeader.className = 'tag-header';
+        tagHeader.textContent = tag;
+        grid.appendChild(tagHeader);
+    });
+    
+    // Schichten erstellen
+    schichten.forEach(schicht => {
+        wochentage.forEach(tag => {
+            const schichtCell = document.createElement('div');
+            schichtCell.className = `schicht-cell schicht-${schicht.toLowerCase()}`;
             
-            // Tag nur bei erster Schicht anzeigen
-            if (schichtIndex === 0) {
-                const tagCell = document.createElement('td');
-                tagCell.className = 'tag-cell';
-                tagCell.textContent = tag;
-                tagCell.rowSpan = 3;
-                row.appendChild(tagCell);
-            }
+            const schichtHeader = document.createElement('div');
+            schichtHeader.className = 'schicht-header';
+            schichtHeader.textContent = schicht;
+            schichtCell.appendChild(schichtHeader);
             
-            // Schicht
-            const schichtCell = document.createElement('td');
-            schichtCell.className = 'schicht-cell';
-            schichtCell.textContent = schicht;
-            row.appendChild(schichtCell);
+            const mitarbeiterContainer = document.createElement('div');
+            mitarbeiterContainer.className = 'mitarbeiter-container';
             
-            // Mitarbeiter
-            const mitarbeiterCell = document.createElement('td');
-            mitarbeiterCell.className = 'mitarbeiter-cell';
-            
-            const mitarbeiterListe = document.createElement('div');
-            mitarbeiterListe.className = 'mitarbeiter-liste';
-            
+            // Mitarbeiter für diese Schicht hinzufügen
             if (dienstplan[tag] && dienstplan[tag][schicht]) {
                 dienstplan[tag][schicht].forEach(mitarbeiterId => {
                     const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
@@ -108,20 +96,18 @@ function renderDienstplanTable() {
                             <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
                             <span class="mitarbeiter-name">${formatMitarbeiterName(mitarbeiterObj)}</span>
                         `;
-                        mitarbeiterListe.appendChild(mitarbeiterDiv);
+                        mitarbeiterContainer.appendChild(mitarbeiterDiv);
                     }
                 });
             }
             
-            mitarbeiterCell.appendChild(mitarbeiterListe);
-            row.appendChild(mitarbeiterCell);
-            
-            tbody.appendChild(row);
+            schichtCell.appendChild(mitarbeiterContainer);
+            grid.appendChild(schichtCell);
         });
     });
 }
 
-// ADMIN BEREICH
+// ADMIN BEREICH (bleibt gleich)
 function showAdminView() {
     const app = document.getElementById('app');
     app.innerHTML = `
@@ -133,10 +119,10 @@ function showAdminView() {
             
             <nav class="admin-nav">
                 <button onclick="switchAdminView('mitarbeiter')" class="btn btn-primary ${currentAdminView === 'mitarbeiter' ? 'active' : ''}">
-                    Mitarbeiter verwalten
+                    👥 Mitarbeiter verwalten
                 </button>
                 <button onclick="switchAdminView('dienstplan')" class="btn btn-primary ${currentAdminView === 'dienstplan' ? 'active' : ''}">
-                    Dienstplan bearbeiten
+                    📅 Dienstplan bearbeiten
                 </button>
             </nav>
             
@@ -168,14 +154,14 @@ function switchAdminView(view) {
     }
 }
 
-// MITARBEITER VERWALTUNG
+// Rest der Funktionen bleiben gleich...
 function showMitarbeiterVerwaltung() {
     const content = document.getElementById('adminContent');
     content.innerHTML = `
         <div class="mitarbeiter-verwaltung">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h2>Mitarbeiter</h2>
-                <button onclick="showAddMitarbeiterForm()" class="btn btn-success">+ Neuer Mitarbeiter</button>
+                <button onclick="showAddMitarbeiterForm()" class="btn btn-success">➕ Neuer Mitarbeiter</button>
             </div>
             
             <div id="mitarbeiterFormContainer" style="display: none;">
@@ -202,8 +188,8 @@ function renderMitarbeiterGrid() {
             <img src="${m.bild}" alt="${m.name}">
             <h3>${m.name}</h3>
             <div class="actions">
-                <button onclick="editMitarbeiter(${m.id})" class="btn btn-warning">Bearbeiten</button>
-                <button onclick="deleteMitarbeiter(${m.id})" class="btn btn-danger">Löschen</button>
+                <button onclick="editMitarbeiter(${m.id})" class="btn btn-warning">✏️ Bearbeiten</button>
+                <button onclick="deleteMitarbeiter(${m.id})" class="btn btn-danger">🗑️ Löschen</button>
             </div>
         `;
         grid.appendChild(card);
@@ -213,7 +199,7 @@ function renderMitarbeiterGrid() {
 function showAddMitarbeiterForm() {
     const container = document.getElementById('mitarbeiterFormContainer');
     container.innerHTML = `
-        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #dee2e6;">
             <h3>Neuer Mitarbeiter</h3>
             <div class="form-group">
                 <label for="mitarbeiterName">Name:</label>
@@ -225,8 +211,8 @@ function showAddMitarbeiterForm() {
                 <div id="imagePreview" style="margin-top: 10px;"></div>
             </div>
             <div style="display: flex; gap: 10px;">
-                <button type="submit" class="btn btn-success">Speichern</button>
-                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">Abbrechen</button>
+                <button type="submit" class="btn btn-success">💾 Speichern</button>
+                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
             </div>
         </form>
     `;
@@ -246,7 +232,7 @@ function previewImage() {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%;">`;
+            preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">`;
         };
         reader.readAsDataURL(file);
     } else {
@@ -333,7 +319,7 @@ function showDienstplanEditor() {
             </div>
             
             <div style="margin-top: 20px; text-align: center;">
-                <button onclick="saveDienstplan()" class="btn btn-success">Dienstplan speichern</button>
+                <button onclick="saveDienstplan()" class="btn btn-success">💾 Dienstplan speichern</button>
             </div>
         </div>
     `;
