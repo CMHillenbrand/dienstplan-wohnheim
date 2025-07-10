@@ -903,3 +903,66 @@ body {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     }
 }
+
+/* Scroll-Fixes für Dienstplan Editor */
+.dienstplan-bearbeitung {
+    margin-top: 20px;
+    height: calc(100vh - 200px);
+    display: flex;
+    flex-direction: column;
+}
+
+.dienstplan-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-template-rows: auto 1fr 1fr 1fr;
+    gap: 2px;
+    background: #dee2e6;
+    border-radius: 12px;
+    overflow: auto; /* WICHTIG: auto statt hidden */
+    flex: 1;
+    min-height: 0;
+}
+
+.edit-schicht-cell {
+    background: white;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: all 0.3s;
+    border: 3px solid transparent;
+    position: relative;
+    min-height: 120px;
+}
+
+/* Mobile Optimierung */
+@media (max-width: 768px) {
+    .dienstplan-bearbeitung {
+        height: calc(100vh - 150px);
+    }
+    
+    .dienstplan-edit-grid {
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+    }
+    
+    .edit-schicht-cell {
+        padding: 8px;
+        min-height: 100px;
+    }
+}
+
+/* Hochformat spezifisch */
+@media (orientation: portrait) and (max-width: 768px) {
+    .dienstplan-edit-grid {
+        grid-template-columns: repeat(7, minmax(80px, 1fr));
+        overflow-x: auto;
+        overflow-y: auto;
+    }
+    
+    .edit-schicht-cell {
+        min-width: 80px;
+        font-size: 0.8em;
+    }
+}
