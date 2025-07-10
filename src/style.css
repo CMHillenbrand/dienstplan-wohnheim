@@ -17,83 +17,84 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
-.dienstplan-table {
-    width: 100%;
-    border-collapse: collapse;
-    background: white;
+.dienstplan-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-template-rows: auto 1fr 1fr 1fr;
+    gap: 2px;
+    background: #dee2e6;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
     flex: 1;
+    min-height: 0;
 }
 
-.dienstplan-table th,
-.dienstplan-table td {
-    padding: 20px;
-    text-align: left;
-    border-bottom: 1px solid #e9ecef;
-}
-
-.dienstplan-table th {
+.tag-header {
     background: #343a40;
     color: white;
-    font-weight: 600;
+    padding: 15px;
+    text-align: center;
+    font-weight: 700;
     font-size: 1.4em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-transform: uppercase;
     letter-spacing: 1px;
 }
 
-.dienstplan-table td {
-    font-size: 1.2em;
-    vertical-align: top;
-}
-
-.dienstplan-table tr:hover {
-    background: #f8f9fa;
-}
-
-.tag-cell {
-    font-weight: 700;
-    color: #495057;
-    font-size: 1.3em;
-    background: #e9ecef !important;
-    border-right: 4px solid #007bff;
-}
-
 .schicht-cell {
-    font-weight: 600;
-    color: #6c757d;
-    font-size: 1.2em;
-    min-width: 120px;
-}
-
-.mitarbeiter-cell {
-    min-width: 300px;
-}
-
-.mitarbeiter-liste {
+    background: white;
+    padding: 15px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.schicht-header {
+    font-weight: 700;
+    font-size: 1.2em;
+    color: #495057;
+    margin-bottom: 12px;
+    text-align: center;
+    padding: 8px;
+    background: #e9ecef;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+}
+
+.mitarbeiter-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
 }
 
 .mitarbeiter-item {
     display: flex;
     align-items: center;
     background: #f8f9fa;
-    padding: 12px;
+    padding: 8px;
     border-radius: 8px;
     border: 2px solid #dee2e6;
-    min-width: 180px;
+    transition: all 0.3s;
+}
+
+.mitarbeiter-item:hover {
+    border-color: #007bff;
+    transform: translateY(-1px);
 }
 
 .mitarbeiter-item img {
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    margin-right: 12px;
+    margin-right: 10px;
     object-fit: cover;
     border: 2px solid #dee2e6;
 }
@@ -104,9 +105,22 @@ body {
     color: #495057;
 }
 
+/* Schichtspezifische Farben */
+.schicht-fruehdienst .schicht-header {
+    border-left-color: #28a745;
+}
+
+.schicht-spaetdienst .schicht-header {
+    border-left-color: #ffc107;
+}
+
+.schicht-nachtdienst .schicht-header {
+    border-left-color: #6f42c1;
+}
+
 /* ADMIN BEREICH */
 .admin-view {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 30px;
 }
@@ -174,6 +188,12 @@ body {
     border-radius: 8px;
     border: 2px solid #dee2e6;
     text-align: center;
+    transition: all 0.3s;
+}
+
+.mitarbeiter-card:hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
 }
 
 .mitarbeiter-card img {
@@ -182,6 +202,7 @@ body {
     border-radius: 50%;
     margin-bottom: 15px;
     object-fit: cover;
+    border: 3px solid #dee2e6;
 }
 
 .mitarbeiter-card h3 {
@@ -208,6 +229,7 @@ body {
     padding: 20px;
     border-radius: 8px;
     height: fit-content;
+    border: 2px solid #dee2e6;
 }
 
 .tag-selector h3 {
@@ -215,7 +237,7 @@ body {
     color: #2c3e50;
 }
 
-.tag-selector button {
+.tag-btn {
     width: 100%;
     padding: 12px;
     margin-bottom: 8px;
@@ -224,15 +246,18 @@ body {
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.3s;
+    font-size: 1em;
 }
 
-.tag-selector button:hover {
+.tag-btn:hover {
     border-color: #007bff;
+    transform: translateX(5px);
 }
 
-.tag-selector button.active {
+.tag-btn.active {
     background: #007bff;
     color: white;
+    border-color: #007bff;
 }
 
 .schicht-editor {
@@ -244,6 +269,7 @@ body {
     background: #f8f9fa;
     padding: 20px;
     border-radius: 8px;
+    border: 2px solid #dee2e6;
     border-left: 4px solid #007bff;
 }
 
@@ -271,6 +297,7 @@ body {
 
 .checkbox-item:hover {
     border-color: #007bff;
+    transform: translateY(-2px);
 }
 
 .checkbox-item.selected {
@@ -289,6 +316,7 @@ body {
     border-radius: 50%;
     margin-right: 12px;
     object-fit: cover;
+    border: 2px solid #dee2e6;
 }
 
 /* Buttons */
@@ -301,6 +329,10 @@ body {
     transition: all 0.3s;
     text-decoration: none;
     display: inline-block;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
 }
 
 .btn-primary {
@@ -369,16 +401,67 @@ body {
     border-color: #007bff;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .dienstplan-table th,
-    .dienstplan-table td {
-        padding: 15px 10px;
-        font-size: 1em;
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .dienstplan-grid {
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
     }
     
-    .mitarbeiter-liste {
-        flex-direction: column;
+    .tag-header {
+        font-size: 1.2em;
+        padding: 10px;
+    }
+    
+    .schicht-cell {
+        padding: 10px;
+    }
+    
+    .mitarbeiter-item img {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .mitarbeiter-name {
+        font-size: 1em;
+    }
+}
+
+@media (max-width: 768px) {
+    .dienstplan-view {
+        padding: 10px;
+    }
+    
+    .dienstplan-grid {
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+    }
+    
+    .tag-header {
+        font-size: 1em;
+        padding: 8px;
+    }
+    
+    .schicht-cell {
+        padding: 8px;
+    }
+    
+    .schicht-header {
+        font-size: 1em;
+        margin-bottom: 8px;
+    }
+    
+    .mitarbeiter-item {
+        padding: 6px;
+    }
+    
+    .mitarbeiter-item img {
+        width: 35px;
+        height: 35px;
+    }
+    
+    .mitarbeiter-name {
+        font-size: 0.9em;
     }
     
     .admin-nav {
@@ -391,20 +474,58 @@ body {
     }
 }
 
-/* TV-Optimierung */
+/* TV-Optimierung (große Bildschirme) */
 @media (min-width: 1920px) {
-    .dienstplan-table th,
-    .dienstplan-table td {
+    .dienstplan-view {
         padding: 30px;
-        font-size: 1.6em;
+    }
+    
+    .tag-header {
+        font-size: 1.8em;
+        padding: 20px;
+    }
+    
+    .schicht-cell {
+        padding: 20px;
+    }
+    
+    .schicht-header {
+        font-size: 1.4em;
+        margin-bottom: 15px;
+    }
+    
+    .mitarbeiter-item {
+        padding: 12px;
     }
     
     .mitarbeiter-item img {
-        width: 70px;
-        height: 70px;
+        width: 60px;
+        height: 60px;
     }
     
     .mitarbeiter-name {
-        font-size: 1.4em;
+        font-size: 1.3em;
+    }
+}
+
+/* 4K-Optimierung */
+@media (min-width: 3840px) {
+    .tag-header {
+        font-size: 2.5em;
+        padding: 30px;
+    }
+    
+    .schicht-header {
+        font-size: 2em;
+        margin-bottom: 20px;
+    }
+    
+    .mitarbeiter-item img {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .mitarbeiter-name {
+        font-size: 1.8em;
     }
 }
