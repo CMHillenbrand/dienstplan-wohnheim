@@ -445,3 +445,287 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+// Globale Variable für den aktuell bearbeiteten Mitarbeiter
+let currentEditingMitarbeiter = null;
+
+// Mitarbeiterbearbeitung implementieren
+function editMitarbeiter(id) {
+    const mitarbeiterObj = getMitarbeiterById(id);
+    if (mitarbeiterObj) {
+        currentEditingMitarbeiter = id;
+        showEditMitarbeiterForm(mitarbeiterObj);
+    }
+}
+
+function showEditMitarbeiterForm(mitarbeiterObj) {
+    const container = document.getElementById('mitarbeiterFormContainer');
+    container.innerHTML = `
+        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #007bff;">
+            <h3>Mitarbeiter bearbeiten</h3>
+            <div class="form-group">
+                <label for="mitarbeiterName">Name:</label>
+                <input type="text" id="mitarbeiterName" value="${mitarbeiterObj.name}" required>
+            </div>
+            <div class="form-group">
+                <label for="mitarbeiterBild">Foto ändern (optional):</label>
+                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
+                <div id="imagePreview" style="margin-top: 10px;">
+                    <div style="margin-bottom: 10px;">
+                        <strong>Aktuelles Foto:</strong>
+                    </div>
+                    <img src="${mitarbeiterObj.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success">💾 Änderungen speichern</button>
+                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
+            </div>
+        </form>
+    `;
+    
+    container.style.display = 'block';
+    
+    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveMitarbeiter();
+    });
+}
+
+function showAddMitarbeiterForm() {
+    currentEditingMitarbeiter = null;
+    const container = document.getElementById('mitarbeiterFormContainer');
+    container.innerHTML = `
+        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #28a745;">
+            <h3>Neuer Mitarbeiter</h3>
+            <div class="form-group">
+                <label for="mitarbeiterName">Name:</label>
+                <input type="text" id="mitarbeiterName" required>
+            </div>
+            <div class="form-group">
+                <label for="mitarbeiterBild">Foto:</label>
+                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
+                <div id="imagePreview" style="margin-top: 10px;"></div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success">💾 Speichern</button>
+                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">❌ Abbrechen</button>
+            </div>
+        </form>
+    `;
+    
+    container.style.display = 'block';
+    
+    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveMitarbeiter();
+    });
+}
+
+function previewImage() {
+    const file = document.getElementById('mitarbeiterBild').files[0];
+    const preview = document.getElementById('imagePreview');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            if (currentEditingMitarbeiter) {
+                // Bei Bearbeitung: Neues Bild + aktuelles Bild anzeigen
+                const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
+                preview.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Neues Foto:</strong>
+                    </div>
+                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745; margin-right: 10px;">
+                    <div style="margin-top: 10px; margin-bottom: 10px;">
+                        <strong>Aktuelles Foto:</strong>
+                    </div>
+                    <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
+                `;
+            } else {
+                // Bei neuem Mitarbeiter: Nur Vorschau
+                preview.innerHTML = `
+                    <div style="margin-bottom: 10px;">
+                        <strong>Vorschau:</strong>
+                    </div>
+                    <img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #28a745;">
+                `;
+            }
+        };
+        reader.readAsDataURL(file);
+    } else {
+        if (currentEditingMitarbeiter) {
+            // Zurück zum aktuellen Bild
+            const currentMitarbeiter = getMitarbeiterById(currentEditingMitarbeiter);
+            preview.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <strong>Aktuelles Foto:</strong>
+                </div>
+                <img src="${currentMitarbeiter.bild}" style="max-width: 100px; max-height: 100px; border-radius: 50%; border: 2px solid #dee2e6;">
+            `;
+        } else {
+            preview.innerHTML = '';
+        }
+    }
+}
+
+function saveMitarbeiter() {
+    const name = document.getElementById('mitarbeiterName').value;
+    const file = document.getElementById('mitarbeiterBild').files[0];
+    
+    if (currentEditingMitarbeiter) {
+        // Mitarbeiter bearbeiten
+        const mitarbeiterObj = getMitarbeiterById(currentEditingMitarbeiter);
+        mitarbeiterObj.name = name;
+        
+        if (file) {
+            // Neues Bild hochgeladen
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                mitarbeiterObj.bild = e.target.result;
+                finishMitarbeiterSave();
+            };
+            reader.readAsDataURL(file);
+        } else {
+            // Kein neues Bild - nur Name aktualisieren
+            finishMitarbeiterSave();
+        }
+    } else {
+        // Neuer Mitarbeiter
+        const newId = Math.max(...mitarbeiter.map(m => m.id)) + 1;
+        const newMitarbeiter = {
+            id: newId,
+            name: name,
+            bild: "https://via.placeholder.com/80"
+        };
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                newMitarbeiter.bild = e.target.result;
+                mitarbeiter.push(newMitarbeiter);
+                finishMitarbeiterSave();
+            };
+            reader.readAsDataURL(file);
+        } else {
+            mitarbeiter.push(newMitarbeiter);
+            finishMitarbeiterSave();
+        }
+    }
+}
+
+function finishMitarbeiterSave() {
+    cancelMitarbeiterForm();
+    renderMitarbeiterGrid();
+    saveToStorage();
+    
+    // Dienstplan-Anzeige aktualisieren falls sie geladen ist
+    if (window.location.pathname === '/') {
+        renderDienstplanGrid();
+    }
+    
+    // Success-Message
+    showSuccessMessage(currentEditingMitarbeiter ? 'Mitarbeiter wurde aktualisiert!' : 'Mitarbeiter wurde erstellt!');
+    
+    // Reset
+    currentEditingMitarbeiter = null;
+}
+
+function cancelMitarbeiterForm() {
+    document.getElementById('mitarbeiterFormContainer').style.display = 'none';
+    currentEditingMitarbeiter = null;
+}
+
+function deleteMitarbeiter(id) {
+    const mitarbeiterObj = getMitarbeiterById(id);
+    if (confirm(`Mitarbeiter "${mitarbeiterObj.name}" wirklich löschen?\n\nDer Mitarbeiter wird auch aus dem Dienstplan entfernt.`)) {
+        // Aus Mitarbeiter-Array entfernen
+        mitarbeiter = mitarbeiter.filter(m => m.id !== id);
+        
+        // Aus Dienstplan entfernen
+        Object.keys(dienstplan).forEach(tag => {
+            Object.keys(dienstplan[tag]).forEach(schicht => {
+                dienstplan[tag][schicht] = dienstplan[tag][schicht].filter(mId => mId !== id);
+            });
+        });
+        
+        renderMitarbeiterGrid();
+        saveToStorage();
+        
+        // Dienstplan-Anzeige aktualisieren falls sie geladen ist
+        if (window.location.pathname === '/') {
+            renderDienstplanGrid();
+        }
+        
+        showSuccessMessage(`Mitarbeiter "${mitarbeiterObj.name}" wurde gelöscht.`);
+    }
+}
+
+// Success-Message anzeigen
+function showSuccessMessage(message) {
+    // Entferne vorhandene Messages
+    const existingMessage = document.querySelector('.success-message');
+    if (existingMessage) {
+        existingMessage.remove();
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'success-message';
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 1000;
+        font-weight: 600;
+        animation: slideIn 0.3s ease-out;
+    `;
+    messageDiv.textContent = message;
+    
+    document.body.appendChild(messageDiv);
+    
+    // Nach 3 Sekunden ausblenden
+    setTimeout(() => {
+        messageDiv.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Verbesserte Mitarbeiter-Grid-Darstellung
+function renderMitarbeiterGrid() {
+    const grid = document.getElementById('mitarbeiterGrid');
+    grid.innerHTML = '';
+    
+    if (mitarbeiter.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #6c757d;">
+                <h3>Noch keine Mitarbeiter vorhanden</h3>
+                <p>Klicken Sie auf "Neuer Mitarbeiter" um den ersten Mitarbeiter hinzuzufügen.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    mitarbeiter.forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'mitarbeiter-card';
+        card.innerHTML = `
+            <img src="${m.bild}" alt="${m.name}" onerror="this.src='https://via.placeholder.com/80'">
+            <h3>${m.name}</h3>
+            <p style="color: #6c757d; margin-bottom: 15px;">ID: ${m.id}</p>
+            <div class="actions">
+                <button onclick="editMitarbeiter(${m.id})" class="btn btn-warning">✏️ Bearbeiten</button>
+                <button onclick="deleteMitarbeiter(${m.id})" class="btn btn-danger">🗑️ Löschen</button>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
