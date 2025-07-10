@@ -810,23 +810,142 @@ function showSuccessMessage(message) {
     }, 3000);
 }
 
-// STORAGE
-function saveToStorage() {
-    localStorage.setItem('dienstplan_mitarbeiter', JSON.stringify(mitarbeiter));
-    localStorage.setItem('dienstplan_plan', JSON.stringify(dienstplan));
+// STORAGE - Aktualisiert für Server-Backend
+async function saveToStorage() {
+    try {
+        // Mitarbeiter speichern
+        const mitarbeiterResponse = await fetch('/api/mitarbeiter', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(mitarbeiter)
+        });
+        
+        // Dienstplan speichern
+        const dienstplanResponse = await fetch('/api/dienstplan', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dienstplan)
+        });
+        
+        if (!mitarbeiterResponse.ok || !dienstplanResponse.ok) {
+            throw new Error('Fehler beim Speichern');
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Speicherfehler:', error);
+        showErrorMessage('Fehler beim Speichern der Daten');
+        return false;
+    }
 }
 
-function loadFromStorage() {
-    const savedMitarbeiter = localStorage.getItem('dienstplan_mitarbeiter');
-    const savedPlan = localStorage.getItem('dienstplan_plan');
+async function loadFromStorage() {
+    try {
+        // Mitarbeiter laden
+        const mitarbeiterResponse = await fetch('/api/mitarbeiter');
+        if (mitarbeiterResponse.ok) {
+            mitarbeiter = await mitarbeiterResponse.json();
+        }
+        
+        // Dienstplan laden
+        const dienstplanResponse = await fetch('/api/dienstplan');
+        if (dienstplanResponse.ok) {
+            dienstplan = await dienstplanResponse.json();
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Ladefehler:', error);
+        showErrorMessage('Fehler beim Laden der Daten');
+        return false;
+    }
+}
+
+// Fehler-Message Funktion hinzufügen
+function showErrorMessage(message) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'error-message';
+    messageDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #dc3545;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 1000;
+        font-weight: 600;
+        animation: slideIn 0.3s ease-out;
+    `;
+    messageDiv.textContent = message;
     
-    if (savedMitarbeiter) {
-        mitarbeiter = JSON.parse(savedMitarbeiter);
+    document.body.appendChild(messageDiv);
+    
+    setTimeout(() => {
+        messageDiv.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            if (messageDiv.parentNode) {
+                messageDiv.parentNode.removeChild(messageDiv);
+            }
+        }, 300);
+    }, 5000);
+}
+
+// DOMContentLoaded Event aktualisieren
+document.addEventListener('DOMContentLoaded', async function() {
+    await loadFromStorage();
+    initRouter();
+});
+
+// Alle saveToStorage() Aufrufe zu async machen
+async function finishMitarbeiterSave() {
+    cancelMitarbeiterForm();
+    renderMitarbeiterGrid();
+    await saveToStorage();
+    
+    if (window.location.pathname === '/') {
+        renderDienstplanGrid();
     }
     
-    if (savedPlan) {
-        dienstplan = JSON.parse(savedPlan);
+    showSuccessMessage(currentEditingMitarbeiter ? 'Mitarbeiter wurde aktualisiert!' : 'Mitarbeiter wurde erstellt!');
+    currentEditingMitarbeiter = null;
+}
+
+async function deleteMitarbeiter(id) {
+    const mitarbeiterObj = getMitarbeiterById(id);
+    if (confirm(`Mitarbeiter "${mitarbeiterObj.name}" wirklich löschen?\n\nDer Mitarbeiter wird auch aus dem Dienstplan entfernt.`)) {
+        mitarbeiter = mitarbeiter.filter(m => m.id !== id);
+        
+        Object.keys(dienstplan).forEach(tag => {
+            Object.keys(dienstplan[tag]).forEach(schicht => {
+                dienstplan[tag][schicht] = dienstplan[tag][schicht].filter(mId => mId !== id);
+            });
+        });
+        
+        renderMitarbeiterGrid();
+        await saveToStorage();
+        
+        if (window.location.pathname === '/') {
+            renderDienstplanGrid();
+        }
+        
+        showSuccessMessage(`Mitarbeiter "${mitarbeiterObj.name}" wurde gelöscht.`);
     }
+}
+
+async function saveDienstplan() {
+    await saveToStorage();
+    
+    if (window.location.pathname === '/') {
+        renderDienstplanGrid();
+    }
+    
+    showSuccessMessage('Dienstplan wurde gespeichert!');
 }
 
 // EVENT LISTENERS
