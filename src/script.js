@@ -1,70 +1,297 @@
-// Erweiterte Daten
+// Daten
 let mitarbeiter = [
-    { id: 1, name: "Anna Müller", bild: "https://via.placeholder.com/60" },
-    { id: 2, name: "Max Mustermann", bild: "https://via.placeholder.com/60" },
-    { id: 3, name: "Lisa Schmidt", bild: "https://via.placeholder.com/60" }
+    { id: 1, name: "Anna Müller", bild: "https://via.placeholder.com/80" },
+    { id: 2, name: "Max Mustermann", bild: "https://via.placeholder.com/80" },
+    { id: 3, name: "Lisa Schmidt", bild: "https://via.placeholder.com/80" },
+    { id: 4, name: "Tom Weber", bild: "https://via.placeholder.com/80" }
 ];
 
 let dienstplan = {
-    "Montag": { "Frühdienst": [1, 2], "Spätdienst": [3], "Nachtdienst": [1] },
-    "Dienstag": { "Frühdienst": [1, 3], "Spätdienst": [2], "Nachtdienst": [3] },
-    "Mittwoch": { "Frühdienst": [2, 3], "Spätdienst": [1], "Nachtdienst": [2] },
-    "Donnerstag": { "Frühdienst": [1, 2], "Spätdienst": [3], "Nachtdienst": [1] },
-    "Freitag": { "Frühdienst": [2, 3], "Spätdienst": [1], "Nachtdienst": [2] },
-    "Samstag": { "Frühdienst": [1, 3], "Spätdienst": [2], "Nachtdienst": [3] },
-    "Sonntag": { "Frühdienst": [1, 2], "Spätdienst": [3], "Nachtdienst": [1] }
+    "Montag": { "Frühdienst": [1, 2], "Spätdienst": [3], "Nachtdienst": [4] },
+    "Dienstag": { "Frühdienst": [4, 1], "Spätdienst": [2], "Nachtdienst": [3] },
+    "Mittwoch": { "Frühdienst": [3, 2], "Spätdienst": [1], "Nachtdienst": [4] },
+    "Donnerstag": { "Frühdienst": [4, 3], "Spätdienst": [2], "Nachtdienst": [1] },
+    "Freitag": { "Frühdienst": [1, 2], "Spätdienst": [3], "Nachtdienst": [4] },
+    "Samstag": { "Frühdienst": [4, 1], "Spätdienst": [2], "Nachtdienst": [3] },
+    "Sonntag": { "Frühdienst": [3, 2], "Spätdienst": [1], "Nachtdienst": [4] }
 };
 
-let currentEditingMitarbeiter = null;
+let currentAdminView = 'mitarbeiter';
+let currentEditingTag = 'Montag';
 
-// Mitarbeiterverwaltung
-function showMitarbeiterVerwaltung() {
-    loadMitarbeiterList();
-    document.getElementById('mitarbeiterModal').style.display = 'block';
+// Routing
+function initRouter() {
+    const path = window.location.pathname;
+    if (path === '/admin' || path === '/admin/') {
+        showAdminView();
+    } else {
+        showDienstplanView();
+    }
 }
 
-function closeMitarbeiterModal() {
-    document.getElementById('mitarbeiterModal').style.display = 'none';
+// Hilfsfunktionen
+function formatMitarbeiterName(mitarbeiter) {
+    const parts = mitarbeiter.name.split(' ');
+    if (parts.length > 1) {
+        return parts[0] + ' ' + parts[1].charAt(0) + '.';
+    }
+    return parts[0];
 }
 
-function loadMitarbeiterList() {
-    const container = document.getElementById('mitarbeiterList');
-    container.innerHTML = '';
+function getMitarbeiterById(id) {
+    return mitarbeiter.find(m => m.id === id);
+}
+
+// DIENSTPLAN ANZEIGE
+function showDienstplanView() {
+    const app = document.getElementById('app');
+    app.innerHTML = `
+        <div class="dienstplan-view">
+            <table class="dienstplan-table">
+                <thead>
+                    <tr>
+                        <th>Tag</th>
+                        <th>Schicht</th>
+                        <th>Mitarbeiter</th>
+                    </tr>
+                </thead>
+                <tbody id="dienstplanTableBody">
+                    <!-- Wird dynamisch gefüllt -->
+                </tbody>
+            </table>
+        </div>
+    `;
     
-    mitarbeiter.forEach(m => {
-        const div = document.createElement('div');
-        div.className = 'mitarbeiter-item';
-        div.innerHTML = `
-            <img src="${m.bild}" alt="${m.name}">
-            <div class="mitarbeiter-info">
-                <h4>${m.name}</h4>
-            </div>
-            <div class="mitarbeiter-actions">
-                <button onclick="editMitarbeiter(${m.id})" class="btn-edit">✏️ Bearbeiten</button>
-                <button onclick="deleteMitarbeiter(${m.id})" class="btn-delete">🗑️ Löschen</button>
-            </div>
-        `;
-        container.appendChild(div);
+    renderDienstplanTable();
+}
+
+function renderDienstplanTable() {
+    const tbody = document.getElementById('dienstplanTableBody');
+    tbody.innerHTML = '';
+    
+    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
+    const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+    
+    wochentage.forEach(tag => {
+        schichten.forEach((schicht, schichtIndex) => {
+            const row = document.createElement('tr');
+            
+            // Tag nur bei erster Schicht anzeigen
+            if (schichtIndex === 0) {
+                const tagCell = document.createElement('td');
+                tagCell.className = 'tag-cell';
+                tagCell.textContent = tag;
+                tagCell.rowSpan = 3;
+                row.appendChild(tagCell);
+            }
+            
+            // Schicht
+            const schichtCell = document.createElement('td');
+            schichtCell.className = 'schicht-cell';
+            schichtCell.textContent = schicht;
+            row.appendChild(schichtCell);
+            
+            // Mitarbeiter
+            const mitarbeiterCell = document.createElement('td');
+            mitarbeiterCell.className = 'mitarbeiter-cell';
+            
+            const mitarbeiterListe = document.createElement('div');
+            mitarbeiterListe.className = 'mitarbeiter-liste';
+            
+            if (dienstplan[tag] && dienstplan[tag][schicht]) {
+                dienstplan[tag][schicht].forEach(mitarbeiterId => {
+                    const mitarbeiterObj = getMitarbeiterById(mitarbeiterId);
+                    if (mitarbeiterObj) {
+                        const mitarbeiterDiv = document.createElement('div');
+                        mitarbeiterDiv.className = 'mitarbeiter-item';
+                        mitarbeiterDiv.innerHTML = `
+                            <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
+                            <span class="mitarbeiter-name">${formatMitarbeiterName(mitarbeiterObj)}</span>
+                        `;
+                        mitarbeiterListe.appendChild(mitarbeiterDiv);
+                    }
+                });
+            }
+            
+            mitarbeiterCell.appendChild(mitarbeiterListe);
+            row.appendChild(mitarbeiterCell);
+            
+            tbody.appendChild(row);
+        });
     });
 }
 
-function showAddMitarbeiter() {
-    currentEditingMitarbeiter = null;
-    document.getElementById('addMitarbeiterTitle').textContent = 'Neuer Mitarbeiter';
-    document.getElementById('mitarbeiterForm').reset();
-    document.getElementById('bildPreview').innerHTML = '';
-    document.getElementById('addMitarbeiterModal').style.display = 'block';
+// ADMIN BEREICH
+function showAdminView() {
+    const app = document.getElementById('app');
+    app.innerHTML = `
+        <div class="admin-view">
+            <div class="admin-header">
+                <h1>Dienstplan Verwaltung</h1>
+                <a href="/" class="btn btn-primary">Zur Dienstplan-Anzeige</a>
+            </div>
+            
+            <nav class="admin-nav">
+                <button onclick="switchAdminView('mitarbeiter')" class="btn btn-primary ${currentAdminView === 'mitarbeiter' ? 'active' : ''}">
+                    Mitarbeiter verwalten
+                </button>
+                <button onclick="switchAdminView('dienstplan')" class="btn btn-primary ${currentAdminView === 'dienstplan' ? 'active' : ''}">
+                    Dienstplan bearbeiten
+                </button>
+            </nav>
+            
+            <div class="admin-content" id="adminContent">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+    `;
+    
+    switchAdminView(currentAdminView);
+}
+
+function switchAdminView(view) {
+    currentAdminView = view;
+    
+    // Navigation aktualisieren
+    const navButtons = document.querySelectorAll('.admin-nav button');
+    navButtons.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent.toLowerCase().includes(view)) {
+            btn.classList.add('active');
+        }
+    });
+    
+    if (view === 'mitarbeiter') {
+        showMitarbeiterVerwaltung();
+    } else if (view === 'dienstplan') {
+        showDienstplanEditor();
+    }
+}
+
+// MITARBEITER VERWALTUNG
+function showMitarbeiterVerwaltung() {
+    const content = document.getElementById('adminContent');
+    content.innerHTML = `
+        <div class="mitarbeiter-verwaltung">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>Mitarbeiter</h2>
+                <button onclick="showAddMitarbeiterForm()" class="btn btn-success">+ Neuer Mitarbeiter</button>
+            </div>
+            
+            <div id="mitarbeiterFormContainer" style="display: none;">
+                <!-- Formular wird hier eingefügt -->
+            </div>
+            
+            <div class="mitarbeiter-grid" id="mitarbeiterGrid">
+                <!-- Wird dynamisch gefüllt -->
+            </div>
+        </div>
+    `;
+    
+    renderMitarbeiterGrid();
+}
+
+function renderMitarbeiterGrid() {
+    const grid = document.getElementById('mitarbeiterGrid');
+    grid.innerHTML = '';
+    
+    mitarbeiter.forEach(m => {
+        const card = document.createElement('div');
+        card.className = 'mitarbeiter-card';
+        card.innerHTML = `
+            <img src="${m.bild}" alt="${m.name}">
+            <h3>${m.name}</h3>
+            <div class="actions">
+                <button onclick="editMitarbeiter(${m.id})" class="btn btn-warning">Bearbeiten</button>
+                <button onclick="deleteMitarbeiter(${m.id})" class="btn btn-danger">Löschen</button>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function showAddMitarbeiterForm() {
+    const container = document.getElementById('mitarbeiterFormContainer');
+    container.innerHTML = `
+        <form id="mitarbeiterForm" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3>Neuer Mitarbeiter</h3>
+            <div class="form-group">
+                <label for="mitarbeiterName">Name:</label>
+                <input type="text" id="mitarbeiterName" required>
+            </div>
+            <div class="form-group">
+                <label for="mitarbeiterBild">Foto:</label>
+                <input type="file" id="mitarbeiterBild" accept="image/*" onchange="previewImage()">
+                <div id="imagePreview" style="margin-top: 10px;"></div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-success">Speichern</button>
+                <button type="button" onclick="cancelMitarbeiterForm()" class="btn btn-danger">Abbrechen</button>
+            </div>
+        </form>
+    `;
+    
+    container.style.display = 'block';
+    
+    document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveMitarbeiter();
+    });
+}
+
+function previewImage() {
+    const file = document.getElementById('mitarbeiterBild').files[0];
+    const preview = document.getElementById('imagePreview');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100px; max-height: 100px; border-radius: 50%;">`;
+        };
+        reader.readAsDataURL(file);
+    } else {
+        preview.innerHTML = '';
+    }
+}
+
+function saveMitarbeiter() {
+    const name = document.getElementById('mitarbeiterName').value;
+    const file = document.getElementById('mitarbeiterBild').files[0];
+    
+    const newId = Math.max(...mitarbeiter.map(m => m.id)) + 1;
+    const newMitarbeiter = {
+        id: newId,
+        name: name,
+        bild: "https://via.placeholder.com/80"
+    };
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            newMitarbeiter.bild = e.target.result;
+            mitarbeiter.push(newMitarbeiter);
+            finishMitarbeiterSave();
+        };
+        reader.readAsDataURL(file);
+    } else {
+        mitarbeiter.push(newMitarbeiter);
+        finishMitarbeiterSave();
+    }
+}
+
+function finishMitarbeiterSave() {
+    cancelMitarbeiterForm();
+    renderMitarbeiterGrid();
+    saveToStorage();
+}
+
+function cancelMitarbeiterForm() {
+    document.getElementById('mitarbeiterFormContainer').style.display = 'none';
 }
 
 function editMitarbeiter(id) {
-    const mitarbeiterObj = mitarbeiter.find(m => m.id === id);
-    if (mitarbeiterObj) {
-        currentEditingMitarbeiter = id;
-        document.getElementById('addMitarbeiterTitle').textContent = 'Mitarbeiter bearbeiten';
-        document.getElementById('mitarbeiterName').value = mitarbeiterObj.name;
-        document.getElementById('bildPreview').innerHTML = `<img src="${mitarbeiterObj.bild}" alt="Aktuelles Foto">`;
-        document.getElementById('addMitarbeiterModal').style.display = 'block';
-    }
+    // Implementierung für später
+    alert('Bearbeitung wird noch implementiert');
 }
 
 function deleteMitarbeiter(id) {
@@ -78,137 +305,107 @@ function deleteMitarbeiter(id) {
             });
         });
         
-        loadMitarbeiterList();
-        ladeDienstplan();
-        saveToLocalStorage();
+        renderMitarbeiterGrid();
+        saveToStorage();
     }
 }
 
-function closeAddMitarbeiterModal() {
-    document.getElementById('addMitarbeiterModal').style.display = 'none';
+// DIENSTPLAN EDITOR
+function showDienstplanEditor() {
+    const content = document.getElementById('adminContent');
+    content.innerHTML = `
+        <div class="dienstplan-bearbeitung">
+            <h2>Dienstplan bearbeiten</h2>
+            
+            <div class="dienstplan-editor">
+                <div class="tag-selector">
+                    <h3>Tag auswählen</h3>
+                    <div id="tagButtons">
+                        ${['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'].map(tag => 
+                            `<button type="button" onclick="selectTag('${tag}')" class="tag-btn ${tag === currentEditingTag ? 'active' : ''}">${tag}</button>`
+                        ).join('')}
+                    </div>
+                </div>
+                
+                <div class="schicht-editor" id="schichtEditor">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: center;">
+                <button onclick="saveDienstplan()" class="btn btn-success">Dienstplan speichern</button>
+            </div>
+        </div>
+    `;
+    
+    loadSchichtEditor();
 }
 
-function previewBild() {
-    const file = document.getElementById('mitarbeiterBild').files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('bildPreview').innerHTML = `<img src="${e.target.result}" alt="Vorschau">`;
-        };
-        reader.readAsDataURL(file);
-    }
-}
-
-// Form Submit Handler
-document.getElementById('mitarbeiterForm').addEventListener('submit', function(e) {
-    e.preventDefault();
+function selectTag(tag) {
+    currentEditingTag = tag;
     
-    const name = document.getElementById('mitarbeiterName').value;
-    const bildFile = document.getElementById('mitarbeiterBild').files[0];
-    
-    if (currentEditingMitarbeiter) {
-        // Bearbeiten
-        const mitarbeiterObj = mitarbeiter.find(m => m.id === currentEditingMitarbeiter);
-        mitarbeiterObj.name = name;
-        
-        if (bildFile) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                mitarbeiterObj.bild = e.target.result;
-                finishMitarbeiterSave();
-            };
-            reader.readAsDataURL(bildFile);
-        } else {
-            finishMitarbeiterSave();
+    // Buttons aktualisieren
+    const buttons = document.querySelectorAll('.tag-btn');
+    buttons.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.textContent === tag) {
+            btn.classList.add('active');
         }
-    } else {
-        // Neu erstellen
-        const newId = Math.max(...mitarbeiter.map(m => m.id)) + 1;
-        const newMitarbeiter = {
-            id: newId,
-            name: name,
-            bild: "https://via.placeholder.com/60"
-        };
-        
-        if (bildFile) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                newMitarbeiter.bild = e.target.result;
-                mitarbeiter.push(newMitarbeiter);
-                finishMitarbeiterSave();
-            };
-            reader.readAsDataURL(bildFile);
-        } else {
-            mitarbeiter.push(newMitarbeiter);
-            finishMitarbeiterSave();
-        }
-    }
-});
-
-function finishMitarbeiterSave() {
-    loadMitarbeiterList();
-    ladeDienstplan();
-    closeAddMitarbeiterModal();
-    saveToLocalStorage();
-}
-
-// Dienstplan bearbeiten
-function showDienstplanBearbeiten() {
-    document.getElementById('dienstplanModal').style.display = 'block';
-    loadTagForEdit();
-}
-
-function closeDienstplanModal() {
-    document.getElementById('dienstplanModal').style.display = 'none';
-}
-
-function loadTagForEdit() {
-    const tag = document.getElementById('tagSelect').value;
-    const container = document.getElementById('schichtEdit');
+    });
     
-    container.innerHTML = '';
-    
+    loadSchichtEditor();
+}
+
+function loadSchichtEditor() {
+    const editor = document.getElementById('schichtEditor');
     const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
+    
+    editor.innerHTML = '';
+    
     schichten.forEach(schicht => {
-        const div = document.createElement('div');
-        div.className = 'schicht-group';
-        div.innerHTML = `
+        const group = document.createElement('div');
+        group.className = 'schicht-group';
+        group.innerHTML = `
             <h3>${schicht}</h3>
-            <div class="mitarbeiter-checkboxes" id="${schicht}Checkboxes">
+            <div class="mitarbeiter-checkboxes">
                 ${mitarbeiter.map(m => `
-                    <div class="checkbox-item">
+                    <div class="checkbox-item ${dienstplan[currentEditingTag][schicht].includes(m.id) ? 'selected' : ''}">
                         <input type="checkbox" id="${schicht}_${m.id}" 
-                               ${dienstplan[tag][schicht].includes(m.id) ? 'checked' : ''}
-                               onchange="toggleSchichtSelection('${schicht}', ${m.id}, this.checked)">
-                        <div class="checkbox-mitarbeiter">
-                            <img src="${m.bild}" alt="${m.name}">
-                            <span>${m.name}</span>
-                        </div>
+                               ${dienstplan[currentEditingTag][schicht].includes(m.id) ? 'checked' : ''}
+                               onchange="toggleMitarbeiterSchicht('${schicht}', ${m.id}, this.checked)">
+                        <img src="${m.bild}" alt="${m.name}">
+                        <span>${formatMitarbeiterName(m)}</span>
                     </div>
                 `).join('')}
             </div>
         `;
-        container.appendChild(div);
+        editor.appendChild(group);
     });
 }
 
-function toggleSchichtSelection(schicht, mitarbeiterId, checked) {
-    const tag = document.getElementById('tagSelect').value;
-    
+function toggleMitarbeiterSchicht(schicht, mitarbeiterId, checked) {
     if (checked) {
-        if (!dienstplan[tag][schicht].includes(mitarbeiterId)) {
-            dienstplan[tag][schicht].push(mitarbeiterId);
+        if (!dienstplan[currentEditingTag][schicht].includes(mitarbeiterId)) {
+            dienstplan[currentEditingTag][schicht].push(mitarbeiterId);
         }
     } else {
-        dienstplan[tag][schicht] = dienstplan[tag][schicht].filter(id => id !== mitarbeiterId);
+        dienstplan[currentEditingTag][schicht] = dienstplan[currentEditingTag][schicht].filter(id => id !== mitarbeiterId);
     }
     
-    // Nachtschicht automatisch zu Frühdienst hinzufügen
+    // Nachtschicht automatisch zu Frühdienst des nächsten Tags
     if (schicht === 'Nachtdienst' && checked) {
-        const nextDay = getNextDay(tag);
+        const nextDay = getNextDay(currentEditingTag);
         if (nextDay && !dienstplan[nextDay]['Frühdienst'].includes(mitarbeiterId)) {
             dienstplan[nextDay]['Frühdienst'].push(mitarbeiterId);
         }
+    }
+    
+    // Checkbox-Item Style aktualisieren
+    const checkboxItem = document.querySelector(`#${schicht}_${mitarbeiterId}`).parentElement;
+    if (checked) {
+        checkboxItem.classList.add('selected');
+    } else {
+        checkboxItem.classList.remove('selected');
     }
 }
 
@@ -219,28 +416,17 @@ function getNextDay(currentDay) {
 }
 
 function saveDienstplan() {
-    ladeDienstplan();
-    closeDienstplanModal();
-    saveToLocalStorage();
-    alert('Dienstplan gespeichert!');
+    saveToStorage();
+    alert('Dienstplan wurde gespeichert!');
 }
 
-// Vollbild-Modus
-function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else {
-        document.exitFullscreen();
-    }
-}
-
-// Local Storage
-function saveToLocalStorage() {
+// STORAGE
+function saveToStorage() {
     localStorage.setItem('dienstplan_mitarbeiter', JSON.stringify(mitarbeiter));
     localStorage.setItem('dienstplan_plan', JSON.stringify(dienstplan));
 }
 
-function loadFromLocalStorage() {
+function loadFromStorage() {
     const savedMitarbeiter = localStorage.getItem('dienstplan_mitarbeiter');
     const savedPlan = localStorage.getItem('dienstplan_plan');
     
@@ -253,48 +439,23 @@ function loadFromLocalStorage() {
     }
 }
 
-// Bestehende Funktionen bleiben...
-function ladeDienstplan() {
-    const container = document.getElementById('dienstplan');
-    const wochentage = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-    
-    container.innerHTML = '';
-    
-    wochentage.forEach(tag => {
-        const tagDiv = document.createElement('div');
-        tagDiv.className = 'tag';
-        tagDiv.innerHTML = `<h3>${tag}</h3>`;
-        
-        const schichten = ['Frühdienst', 'Spätdienst', 'Nachtdienst'];
-        schichten.forEach(schicht => {
-            const schichtDiv = document.createElement('div');
-            schichtDiv.className = 'schicht';
-            schichtDiv.innerHTML = `<h4>${schicht}</h4>`;
-            
-            if (dienstplan[tag] && dienstplan[tag][schicht]) {
-                dienstplan[tag][schicht].forEach(mitarbeiterId => {
-                    const mitarbeiterObj = mitarbeiter.find(m => m.id === mitarbeiterId);
-                    if (mitarbeiterObj) {
-                        const mitarbeiterDiv = document.createElement('div');
-                        mitarbeiterDiv.className = 'mitarbeiter';
-                        mitarbeiterDiv.innerHTML = `
-                            <img src="${mitarbeiterObj.bild}" alt="${mitarbeiterObj.name}">
-                            <span class="mitarbeiter-name">${mitarbeiterObj.name}</span>
-                        `;
-                        schichtDiv.appendChild(mitarbeiterDiv);
-                    }
-                });
-            }
-            
-            tagDiv.appendChild(schichtDiv);
-        });
-        
-        container.appendChild(tagDiv);
-    });
-}
-
-// Beim Laden der Seite
+// INIT
 document.addEventListener('DOMContentLoaded', function() {
-    loadFromLocalStorage();
-    ladeDienstplan();
+    loadFromStorage();
+    initRouter();
+});
+
+// Navigation ohne Reload
+window.addEventListener('popstate', initRouter);
+
+// Links abfangen
+document.addEventListener('click', function(e) {
+    if (e.target.tagName === 'A' && e.target.getAttribute('href')) {
+        const href = e.target.getAttribute('href');
+        if (href === '/' || href === '/admin') {
+            e.preventDefault();
+            window.history.pushState({}, '', href);
+            initRouter();
+        }
+    }
 });
